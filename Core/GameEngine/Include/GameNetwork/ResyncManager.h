@@ -41,6 +41,10 @@
 class ConnectionManager;
 class NetResyncCommandMsg;
 
+// Resync fork: log a resync step to <user data>/CRCMismatch/ResyncLog.txt, also in release builds,
+// so a failed resync can be diagnosed on every client.
+void ResyncLog(const char *format, ...);
+
 enum ResyncMethodType CPP_11(: Int)
 {
 	RESYNCMETHOD_STATE,							///< The donor sends its game state

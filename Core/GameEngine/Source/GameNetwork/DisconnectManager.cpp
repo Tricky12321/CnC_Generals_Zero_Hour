@@ -32,6 +32,7 @@
 #include "GameNetwork/DisconnectManager.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/networkutil.h"
+#include "GameNetwork/ResyncManager.h"
 #include "GameNetwork/GameSpy/PingThread.h"
 #include "GameNetwork/GameSpy/GSConfig.h"
 
@@ -555,7 +556,7 @@ void DisconnectManager::resetPacketRouterTimeout() {
 
 void DisconnectManager::turnOnScreen(ConnectionManager *conMgr) {
 	TheDisconnectMenu->showScreen();
-	DEBUG_LOG(("DisconnectManager::turnOnScreen - turning on screen on frame %d", TheGameLogic->getFrame()));
+	ResyncLog("DisconnectManager::turnOnScreen - the disconnect screen is shown");
 	m_disconnectState = DISCONNECTSTATETYPE_SCREENON;
 	m_lastKeepAliveSendTime = -1;
 	populateDisconnectScreen(conMgr);
@@ -569,7 +570,7 @@ void DisconnectManager::turnOnScreen(ConnectionManager *conMgr) {
 }
 
 void DisconnectManager::disconnectPlayer(Int slot, ConnectionManager *conMgr) {
-	DEBUG_LOG(("DisconnectManager::disconnectPlayer - Disconnecting slot number %d on frame %d", slot, TheGameLogic->getFrame()));
+	ResyncLog("DisconnectManager::disconnectPlayer - disconnecting slot %d", slot);
 	DEBUG_ASSERTCRASH((slot >= 0) && (slot < MAX_SLOTS), ("Attempting to disconnect an invalid slot number"));
 	if ((slot < 0) || (slot >= (MAX_SLOTS))) {
 		return;

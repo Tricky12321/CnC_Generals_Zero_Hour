@@ -85,6 +85,7 @@
 #include "GameLogic/CaveSystem.h"
 #include "GameLogic/CRCDiagnostics.h"
 #include "GameLogic/LogicCommandHistory.h"
+#include "GameNetwork/ResyncManager.h"
 #include "GameLogic/CrateSystem.h"
 #include "GameLogic/FPUControl.h"
 #include "GameLogic/GameLogic.h"
@@ -2787,7 +2788,7 @@ void GameLogic::processCommandList( CommandList *list )
 		if (sawCRCMismatch)
 		{
 			++m_consecutiveCRCMismatches;
-			DEBUG_LOG(("CRC Mismatch %d of %d in a row on frame %d", m_consecutiveCRCMismatches, CRC_MISMATCH_TOLERANCE, getFrame()));
+			ResyncLog("CRC mismatch %d of %d in a row on frame %d", m_consecutiveCRCMismatches, CRC_MISMATCH_TOLERANCE, getFrame());
 			writeCRCMismatchReport(CRC_MISMATCH_TOLERANCE);
 			if (m_consecutiveCRCMismatches < CRC_MISMATCH_TOLERANCE)
 			{
@@ -2797,6 +2798,10 @@ void GameLogic::processCommandList( CommandList *list )
 			{
 				m_consecutiveCRCMismatches = 0;
 				sawCRCMismatch = FALSE;
+			}
+			else
+			{
+				ResyncLog("CRC mismatch on frame %d, no resync possible, the game ends", getFrame());
 			}
 		}
 		else
@@ -2951,8 +2956,8 @@ Bool GameLogic::startResyncFromMajority()
 		++donorSlot;
 	}
 
-	DEBUG_LOG(("GameLogic::startResyncFromMajority - frame %d, deciding CRC %8.8X (%d of %d players), donor %d, targets 0x%X",
-		m_frame, decidingCRC, groupCount, numVoters, donorSlot, targetMask));
+	ResyncLog("GameLogic::startResyncFromMajority - frame %d, deciding CRC %8.8X (%d of %d players), donor %d, targets 0x%X",
+		m_frame, decidingCRC, groupCount, numVoters, donorSlot, targetMask);
 
 	// Hold the logic before the next frame executes.
 	TheNetwork->beginResync(m_frame + 1, donorSlot, targetMask, decidingCRC);
@@ -3010,7 +3015,7 @@ void GameLogic::verifyResimulatedCRCs()
 		}
 	}
 
-	DEBUG_LOG(("GameLogic::verifyResimulatedCRCs - deciding CRC %8.8X on frame %d was not reproduced", decidingCRC, m_frame));
+	ResyncLog("GameLogic::verifyResimulatedCRCs - deciding CRC %8.8X on frame %d was not reproduced", decidingCRC, m_frame);
 	m_resimulationDiverged = TRUE;
 }
 
@@ -3029,7 +3034,7 @@ void GameLogic::resumeFromMPCheckpoint()
 		return;
 	}
 
-	DEBUG_LOG(("GameLogic::resumeFromMPCheckpoint - loading %s", MPCheckpoint::getFileName()));
+	ResyncLog("GameLogic::resumeFromMPCheckpoint - loading %s", MPCheckpoint::getFileName());
 	if (TheGameState->loadGameForResync(MPCheckpoint::getFileName()) != SC_OK)
 	{
 		TheInGameUI->messageNoFormat(UnicodeString(L"Resume: the checkpoint could not be loaded"));
@@ -3061,7 +3066,7 @@ Bool GameLogic::resimulateForResync(UnsignedInt targetFrame)
 		return FALSE;
 	}
 
-	DEBUG_LOG(("GameLogic::resimulateForResync - resimulating %u frames", targetFrame));
+	ResyncLog("GameLogic::resimulateForResync - resimulating %u frames", targetFrame);
 
 	const GameMode gameMode = m_gameMode;
 	const UnsignedInt seed = TheGameInfo->getSeed();
@@ -3102,7 +3107,7 @@ Bool GameLogic::resimulateForResync(UnsignedInt targetFrame)
 		if (m_frame != frame + 1)
 		{
 			// Time was frozen or the game did not start, the commands would be executed twice.
-			DEBUG_LOG(("GameLogic::resimulateForResync - frame %u did not advance", frame));
+			ResyncLog("GameLogic::resimulateForResync - frame %u did not advance", frame);
 			failed = TRUE;
 			break;
 		}
@@ -3156,11 +3161,11 @@ Bool GameLogic::resimulateForResync(UnsignedInt targetFrame)
 
 	if (failed)
 	{
-		DEBUG_LOG(("GameLogic::resimulateForResync - failed on frame %u", m_frame));
+		ResyncLog("GameLogic::resimulateForResync - failed on frame %u", m_frame);
 		return FALSE;
 	}
 
-	DEBUG_LOG(("GameLogic::resimulateForResync - reached frame %u", m_frame));
+	ResyncLog("GameLogic::resimulateForResync - reached frame %u", m_frame);
 	return TRUE;
 }
 
