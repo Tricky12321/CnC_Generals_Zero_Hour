@@ -392,7 +392,7 @@ private:
 	UnsignedInt m_pendingRngBaseSeed;
 
 	// TheSuperHackers @info bobtista 21/01/2026 Store sleepy update heap order during xfer LOAD
-	std::vector<std::pair<ObjectID, NameKeyType>> m_pendingSleepyUpdateOrder;
+	std::vector<std::pair<ObjectID, NameKeyType> > m_pendingSleepyUpdateOrder;
 
 	Bool m_isInUpdate;
 	Bool m_hasUpdated;

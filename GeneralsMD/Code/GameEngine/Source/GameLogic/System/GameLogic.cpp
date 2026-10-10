@@ -5553,7 +5553,7 @@ void GameLogic::loadPostProcess()
 		// pushSleepyUpdate() would rebalance the heap and change the order.
 		// The saved order IS already a valid heap structure, so we just restore it directly.
 		m_sleepyUpdates.reserve( m_pendingSleepyUpdateOrder.size() );
-		for ( std::vector<std::pair<ObjectID, NameKeyType>>::const_iterator it = m_pendingSleepyUpdateOrder.begin();
+		for ( std::vector<std::pair<ObjectID, NameKeyType> >::const_iterator it = m_pendingSleepyUpdateOrder.begin();
 				it != m_pendingSleepyUpdateOrder.end(); ++it )
 		{
 			ObjectID objId = it->first;
