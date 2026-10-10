@@ -16,14 +16,15 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Resync fork: mid-game resynchronization of players whose CRC is in the minority.
+// Resync fork: mid-game resynchronization of players whose CRC lost the vote.
 //
 // Flow, driven from ConnectionManager::update:
-//  1. GameLogic detects a persistent CRC mismatch with a clear majority and calls beginResync()
+//  1. GameLogic detects a persistent CRC mismatch, picks the deciding CRC (the largest group of
+//     equal CRCs, the host's group on a tie, see GameLogic::findDecidingCRC) and calls beginResync()
 //     on every client with the same hold frame, donor and target mask (it is computed from the
 //     frame synchronized CRC messages, so all clients agree without extra network traffic).
 //  2. Every client stops advancing the logic at the hold frame.
-//  3. The donor (lowest slot of the majority) saves its game state, compresses it and sends it
+//  3. The donor (lowest slot of the deciding group) saves its game state, compresses it and sends it
 //     in chunks to the targets with NETCOMMANDTYPE_RESYNC.
 //  4. Each target reassembles the state, loads it in place of its own game state once its logic
 //     is at the hold frame, and announces NETRESYNCTYPE_DONE to everyone.
