@@ -36,6 +36,7 @@
 #include "GameNetwork/FrameMetrics.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/DisconnectManager.h"
+#include "GameNetwork/ResyncManager.h"
 
 class GameInfo;
 class NetCommandWrapperList;
@@ -126,6 +127,12 @@ public:
 	Bool isPacketRouter();
 
 	Bool isPlayerConnected( Int playerID );
+	Bool isConnectionQueueEmpty( Int playerID );						///< True if there are no unacknowledged commands for this player.
+
+	// Resync fork: mid-game state transfer to players with a minority CRC.
+	void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC);
+	Bool isResyncInProgress() const;
+	Bool isResyncHoldingFrame(UnsignedInt frame) const;
 
 	void notifyOthersOfCurrentFrame(Int frame);
 	void sendFrameDataToPlayer(UnsignedInt playerID, UnsignedInt startingFrame);
@@ -189,6 +196,7 @@ private:
 	User* m_localUser;
 
 	DisconnectManager *m_disconnectManager;						///< Controls the disconnect dialog.
+	ResyncManager *m_resyncManager;								///< Controls the mid-game resync of out of sync players.
 
 	FrameDataManager *m_frameData[MAX_SLOTS];
 

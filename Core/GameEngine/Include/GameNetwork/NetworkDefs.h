@@ -176,6 +176,9 @@ enum NetCommandType CPP_11(: Int) {
 	NETCOMMANDTYPE_DISCONNECTFRAME,
 	NETCOMMANDTYPE_DISCONNECTSCREENOFF,
 	NETCOMMANDTYPE_DISCONNECTEND,
+
+	// Resync fork: mid-game state transfer to a desynced player. Appended so existing values are unchanged.
+	NETCOMMANDTYPE_RESYNC,
 };
 
 enum NetLocalStatus CPP_11(: Int) {

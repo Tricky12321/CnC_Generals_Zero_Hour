@@ -552,6 +552,7 @@ static PoolSizeRec PoolSizes[] =
 	{ "NetTimeOutGameStartCommandMsg", 32, 32 },
 	{ "NetWrapperCommandMsg", 32, 32 },
 	{ "NetFileCommandMsg", 32, 32 },
+	{ "NetResyncCommandMsg", 256, 256 },
 	{ "NetFileAnnounceCommandMsg", 32, 32 },
 	{ "NetFileProgressCommandMsg", 32, 32 },
 	{ "NetCommandWrapperListNode", 32, 32 },

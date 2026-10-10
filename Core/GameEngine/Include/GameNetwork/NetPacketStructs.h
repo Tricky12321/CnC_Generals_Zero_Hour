@@ -48,6 +48,7 @@ class NetDisconnectVoteCommandMsg;
 class NetProgressCommandMsg;
 class NetWrapperCommandMsg;
 class NetFileCommandMsg;
+class NetResyncCommandMsg;
 class NetFileAnnounceCommandMsg;
 class NetFileProgressCommandMsg;
 class NetDisconnectFrameCommandMsg;
@@ -922,6 +923,46 @@ struct NetPacketFileCommandBase
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+// NetPacketResyncCommand
+////////////////////////////////////////////////////////////////////////////////
+
+struct NetPacketResyncCommandData
+{
+	typedef NetResyncCommandMsg CommandMsg;
+
+	struct FixedData
+	{
+		UnsignedByte resyncType;
+		UnsignedInt holdFrame;
+		UnsignedInt totalLength;
+		UnsignedInt offset;
+		UnsignedInt stateCRC;
+		UnsignedInt dataLength;
+	};
+
+	static size_t getSize(const NetCommandMsg &msg);
+	static size_t copyBytes(UnsignedByte *buffer, const NetCommandRef &ref);
+	static size_t readMessage(NetCommandRef &ref, NetPacketBuf buf);
+};
+
+struct NetPacketResyncCommandBase
+{
+	typedef NetResyncCommandMsg CommandMsg;
+
+	struct CommandBase
+	{
+		NetPacketCommandTypeField commandType;
+		NetPacketRelayField relay;
+		NetPacketPlayerIdField playerId;
+		NetPacketCommandIdField commandId;
+		NetPacketDataField dataHeader;
+	};
+
+	static size_t getSize() { return sizeof(CommandBase); }
+	static size_t copyBytes(UnsignedByte *buffer, const NetCommandRef &ref);
+};
+
+////////////////////////////////////////////////////////////////////////////////
 // NetPacketFileAnnounceCommand
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1196,6 +1237,7 @@ struct NetPacketDisconnectChatCommand           : public NetPacketCommandTemplat
 struct NetPacketGameCommand                     : public NetPacketCommandTemplate<NetPacketGameCommandBase, NetPacketGameCommandData> {};
 struct NetPacketWrapperCommand                  : public NetPacketCommandTemplate<NetPacketWrapperCommandBase, NetPacketWrapperCommandData> {};
 struct NetPacketFileCommand                     : public NetPacketCommandTemplate<NetPacketFileCommandBase, NetPacketFileCommandData> {};
+struct NetPacketResyncCommand                   : public NetPacketCommandTemplate<NetPacketResyncCommandBase, NetPacketResyncCommandData> {};
 struct NetPacketFileAnnounceCommand             : public NetPacketCommandTemplate<NetPacketFileAnnounceCommandBase, NetPacketFileAnnounceCommandData> {};
 struct NetPacketFileProgressCommand             : public NetPacketCommandTemplate<NetPacketFileProgressCommandBase, NetPacketFileProgressCommandData> {};
 struct NetPacketProgressCommand                 : public NetPacketCommandTemplate<NetPacketProgressCommandBase, NetPacketProgressCommandData> {};
@@ -1222,6 +1264,7 @@ struct SmallNetPacketDisconnectChatCommand      : public SmallNetPacketCommandTe
 struct SmallNetPacketGameCommand                : public SmallNetPacketCommandTemplate<SmallNetPacketCommandBase, NetPacketGameCommandData> {};
 struct SmallNetPacketWrapperCommand             : public SmallNetPacketCommandTemplate<SmallNetPacketCommandBase, NetPacketWrapperCommandData> {};
 struct SmallNetPacketFileCommand                : public SmallNetPacketCommandTemplate<SmallNetPacketCommandBase, NetPacketFileCommandData> {};
+struct SmallNetPacketResyncCommand              : public SmallNetPacketCommandTemplate<SmallNetPacketCommandBase, NetPacketResyncCommandData> {};
 struct SmallNetPacketFileAnnounceCommand        : public SmallNetPacketCommandTemplate<SmallNetPacketCommandBase, NetPacketFileAnnounceCommandData> {};
 struct SmallNetPacketFileProgressCommand        : public SmallNetPacketCommandTemplate<SmallNetPacketCommandBase, NetPacketFileProgressCommandData> {};
 struct SmallNetPacketProgressCommand            : public SmallNetPacketCommandTemplate<SmallNetPacketCommandBase, NetPacketProgressCommandData> {};

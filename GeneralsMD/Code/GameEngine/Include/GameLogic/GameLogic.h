@@ -106,6 +106,7 @@ public:
 	Int getNumberSleepyUpdates() const {return m_sleepyUpdates.size();} //For profiling, so not in Release.
 #endif
 	void processCommandList( CommandList *list );		///< process the command list
+	Bool startResyncFromMajority();								///< Resync fork: let the CRC majority resync the minority
 
 	void prepareNewGame( GameMode gameMode, GameDifficulty diff, Int rankPoints );						///< prepare for new game
 
@@ -378,6 +379,7 @@ private:
 	typedef std::map<Int, UnsignedInt> CachedCRCMap;
 	CachedCRCMap m_cachedCRCs;															///< CRCs we've seen this frame
 	Bool m_shouldValidateCRCs;															///< Should we validate CRCs this frame?
+	UnsignedInt m_resyncTestCRCsSent;											///< Resync fork: wrong CRCs sent for -resyncTest
 	UnsignedInt m_consecutiveCRCMismatches;									///< Number of CRC validations in a row that did not match
 	//-----------------------------------------------------------------------------------------------
 	//Bool m_loadingScene;

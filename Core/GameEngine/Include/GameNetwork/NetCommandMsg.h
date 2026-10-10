@@ -563,6 +563,53 @@ protected:
 };
 
 //-----------------------------------------------------------------------------
+enum NetResyncCommandType CPP_11(: UnsignedByte)
+{
+	NETRESYNCTYPE_CHUNK = 0,	///< A chunk of the donor's game state
+	NETRESYNCTYPE_DONE = 1,		///< The sender has received the full game state
+};
+
+//-----------------------------------------------------------------------------
+class NetResyncCommandMsg : public NetCommandMsgT<NetPacketResyncCommand, SmallNetPacketResyncCommand>
+{
+	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(NetResyncCommandMsg, "NetResyncCommandMsg")
+public:
+	NetResyncCommandMsg();
+	//virtual ~NetResyncCommandMsg();
+
+	UnsignedByte getResyncType() const { return m_resyncType; }
+	void setResyncType(UnsignedByte resyncType) { m_resyncType = resyncType; }
+
+	UnsignedInt getHoldFrame() const { return m_holdFrame; }
+	void setHoldFrame(UnsignedInt holdFrame) { m_holdFrame = holdFrame; }
+
+	UnsignedInt getTotalLength() const { return m_totalLength; }
+	void setTotalLength(UnsignedInt totalLength) { m_totalLength = totalLength; }
+
+	UnsignedInt getOffset() const { return m_offset; }
+	void setOffset(UnsignedInt offset) { m_offset = offset; }
+
+	UnsignedInt getStateCRC() const { return m_stateCRC; }
+	void setStateCRC(UnsignedInt stateCRC) { m_stateCRC = stateCRC; }
+
+	UnsignedInt getDataLength() const { return m_dataLength; }
+	const UnsignedByte * getData() const { return m_data; }
+	void setData(NetCommandDataChunk &dataChunk);
+
+	virtual Select getSmallNetPacketSelect() const override;
+
+protected:
+	UnsignedByte m_resyncType;
+	UnsignedInt m_holdFrame;
+	UnsignedInt m_totalLength;
+	UnsignedInt m_offset;
+	UnsignedInt m_stateCRC;
+
+	UnsignedByte *m_data;
+	UnsignedInt m_dataLength;
+};
+
+//-----------------------------------------------------------------------------
 class NetFileAnnounceCommandMsg : public NetCommandMsgT<NetPacketFileAnnounceCommand, SmallNetPacketFileAnnounceCommand>
 {
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(NetFileAnnounceCommandMsg, "NetFileAnnounceCommandMsg")

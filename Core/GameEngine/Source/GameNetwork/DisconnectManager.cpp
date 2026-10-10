@@ -98,6 +98,12 @@ void DisconnectManager::update(ConnectionManager *conMgr) {
 		m_lastFrameTime = timeGetTime();
 	}
 
+	// Resync fork: the logic is deliberately held during a resync, so it must not count as a stall.
+	if (conMgr->isResyncInProgress()) {
+		m_lastFrameTime = timeGetTime();
+		return;
+	}
+
 	// The game logic stalls on the frame we are currently waiting for commands on,
 	// so we have to check for the current logic frame being one higher than
 	// the last one we had the commands ready for.
