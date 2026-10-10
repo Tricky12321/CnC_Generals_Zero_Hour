@@ -2980,7 +2980,12 @@ void GameLogic::writeCRCMismatchReport(UnsignedInt tolerance)
 		return;
 	}
 
-	TheCRCDiagnostics->writeMismatchReport(m_frame, it->second, m_cachedCRCs, m_consecutiveCRCMismatches, tolerance);
+	AsciiString reportName = TheCRCDiagnostics->writeMismatchReport(m_frame, it->second, m_cachedCRCs, m_consecutiveCRCMismatches, tolerance);
+	if (!reportName.isEmpty() && TheNetwork != nullptr)
+	{
+		// The host collects the reports of every player.
+		TheNetwork->sendDiagnosticsFileToHost(reportName);
+	}
 }
 
 //-------------------------------------------------------------------------------------------------

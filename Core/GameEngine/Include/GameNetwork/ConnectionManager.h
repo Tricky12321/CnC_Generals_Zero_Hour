@@ -84,6 +84,7 @@ public:
 
 	void sendFile(AsciiString path, UnsignedByte playerMask, UnsignedShort commandID);
 	UnsignedShort sendFileAnnounce(AsciiString path, UnsignedByte playerMask);
+	void sendDiagnosticsFileToHost(AsciiString fileName);		///< Resync fork: send a file from the CRCMismatch directory to the host
 	Int getFileTransferProgress(Int playerID, AsciiString path);
 	Bool areAllQueuesEmpty();
 

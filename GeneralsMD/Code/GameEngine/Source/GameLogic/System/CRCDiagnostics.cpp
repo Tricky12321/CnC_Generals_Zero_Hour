@@ -156,14 +156,14 @@ FILE *CRCDiagnostics::openDiagnosticsFile(const char *fileName, const char *mode
 }
 
 // ------------------------------------------------------------------------------------------------
-void CRCDiagnostics::writeMismatchReport(UnsignedInt detectFrame, UnsignedInt localCRC, const std::map<Int, UnsignedInt> &playerCRCs,
+AsciiString CRCDiagnostics::writeMismatchReport(UnsignedInt detectFrame, UnsignedInt localCRC, const std::map<Int, UnsignedInt> &playerCRCs,
 	UnsignedInt consecutiveMismatches, UnsignedInt tolerance)
 {
 	// One report per mismatch is enough, but a broken game must not fill the disk.
 	static const UnsignedInt MAX_REPORTS_PER_GAME = 20;
 	if (m_reportsWritten >= MAX_REPORTS_PER_GAME)
 	{
-		return;
+		return AsciiString::TheEmptyString;
 	}
 	++m_reportsWritten;
 
@@ -178,7 +178,7 @@ void CRCDiagnostics::writeMismatchReport(UnsignedInt detectFrame, UnsignedInt lo
 	if (fp == nullptr)
 	{
 		DEBUG_LOG(("CRCDiagnostics - could not write %s", fileName.str()));
-		return;
+		return AsciiString::TheEmptyString;
 	}
 
 	FrameRecord *rec = findFrameByCRC(localCRC);
@@ -225,7 +225,7 @@ void CRCDiagnostics::writeMismatchReport(UnsignedInt detectFrame, UnsignedInt lo
 	{
 		fprintf(fp, "\nNo recorded CRC frame matches the local CRC 0x%8.8X.\n", localCRC);
 		fclose(fp);
-		return;
+		return AsciiString::TheEmptyString;
 	}
 
 	fprintf(fp, "\nSections (running CRC after the section):\n");
@@ -245,6 +245,7 @@ void CRCDiagnostics::writeMismatchReport(UnsignedInt detectFrame, UnsignedInt lo
 
 	fclose(fp);
 	DEBUG_LOG(("CRCDiagnostics - wrote %s", fileName.str()));
+	return fileName;
 }
 
 // ------------------------------------------------------------------------------------------------

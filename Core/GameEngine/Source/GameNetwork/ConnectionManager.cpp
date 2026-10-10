@@ -25,6 +25,8 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include "Common/GlobalData.h"
+
 #include "Compression.h"
 #include "WWLib/strtok_r.h"
 #include "Common/AudioEventRTS.h"
@@ -911,7 +913,7 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 		fp->write(buf, len);
 		fp->close();
 		fp = nullptr;
-		DEBUG_LOG(("Wrote %d bytes to file %s!", len, realFileName.str()));
+		ResyncLog("ConnectionManager::processFile - wrote %d bytes from player %u to %s", len, msg->getPlayerID(), realFileName.str());
 
 	}
 	else
@@ -2405,6 +2407,70 @@ void ConnectionManager::sendFile(AsciiString path, UnsignedByte playerMask, Unsi
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("Sending file: '%s', len %d, to %X", path.str(), len, playerMask));
 
 	sendLocalCommand(fileMsg, playerMask);
+
+	fileMsg->detach();
+}
+
+/**
+ * Resync fork: send a file from <user data>\CRCMismatch\ to the host, so the host can analyze the
+ * diagnostics of every player after a desync. The host stores it as
+ * CRCMismatch\From\Slot<N>_<name>\<file>, see GameState::portableMapPathToRealMapPath.
+ */
+void ConnectionManager::sendDiagnosticsFileToHost(AsciiString fileName)
+{
+	const Int hostSlot = 0;
+	if (m_localSlot == hostSlot || m_connections[hostSlot] == nullptr || m_connections[hostSlot]->isQuitting())
+	{
+		return;
+	}
+
+	AsciiString path;
+	path.format("%sCRCMismatch\\%s", TheGlobalData->getPath_UserData().str(), fileName.str());
+	File *theFile = TheLocalFileSystem->openFile(path.str());
+	if (theFile == nullptr)
+	{
+		return;
+	}
+	const Int len = theFile->size();
+	if (len <= 0)
+	{
+		theFile->close();
+		return;
+	}
+	char *buf = theFile->readEntireAndClose();
+	if (buf == nullptr)
+	{
+		return;
+	}
+	NetCommandDataChunk dataChunk(buf, len);
+
+	// The sender's name keeps the files of the players apart on the host. Only safe characters
+	// are used in the directory name.
+	AsciiString senderName;
+	if (m_localUser != nullptr)
+	{
+		senderName.translate(m_localUser->GetName());
+	}
+	AsciiString safeName;
+	for (const char *c = senderName.str(); *c != 0; ++c)
+	{
+		if (isalnum((unsigned char)*c) || *c == '_' || *c == '-')
+		{
+			safeName.concat(*c);
+		}
+	}
+
+	AsciiString portableName;
+	portableName.format("Diag\\Slot%d_%s\\%s", m_localSlot, safeName.str(), fileName.str());
+
+	NetFileCommandMsg *fileMsg = newInstance(NetFileCommandMsg);
+	fileMsg->setPlayerID(m_localSlot);
+	fileMsg->setID(GenerateNextCommandID());
+	fileMsg->setPortableFilename(portableName);
+	fileMsg->setFileData(dataChunk);
+
+	ResyncLog("ConnectionManager::sendDiagnosticsFileToHost - sending %s (%d bytes) as %s", fileName.str(), len, portableName.str());
+	sendLocalCommand(fileMsg, 1 << hostSlot);
 
 	fileMsg->detach();
 }

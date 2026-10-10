@@ -59,8 +59,8 @@ static const UnsignedInt RESYNC_MAX_PAYLOAD_SIZE = 64 * 1024 * 1024;
 static const char *RESYNC_SAVE_FILENAME = "ResyncState.sav";
 static const char *RESYNC_RECEIVED_FILENAME = "ResyncReceived.sav";
 
-// The log starts over once it gets this big.
-static const long RESYNC_LOG_MAX_SIZE = 1024 * 1024;
+// The log starts over once it gets this big. It stays under the 1 MB limit of the file transfer.
+static const long RESYNC_LOG_MAX_SIZE = 512 * 1024;
 
 void ResyncLog(const char *format, ...)
 {
