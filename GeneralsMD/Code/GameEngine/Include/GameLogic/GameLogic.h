@@ -109,6 +109,7 @@ public:
 	Bool startResyncFromMajority();								///< Resync fork: let the CRC majority resync the minority
 	void writeCRCMismatchReport(UnsignedInt tolerance);			///< Resync fork: write the CRC diagnostics of a mismatch
 	Bool canResimulateTo(UnsignedInt frame) const;					///< Resync fork: are the commands of all frames before this one recorded?
+	void resumeFromMPCheckpoint();													///< Resync fork: continue a lost game from its checkpoint
 	Bool resimulateForResync(UnsignedInt targetFrame);			///< Resync fork: rebuild the game state by replaying the recorded commands
 	Bool isResimulating() const { return m_isResimulating; }
 

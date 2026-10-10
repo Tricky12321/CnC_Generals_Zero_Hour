@@ -167,6 +167,7 @@ public:
 	virtual void setSawCRCMismatch() override;
 	virtual void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC) override;
 	virtual Bool isResyncInProgress() override;
+	virtual void rebaseFrames(UnsignedInt frame) override;
 	virtual Bool sawCRCMismatch() override { return m_sawCRCMismatch; }
 	virtual Bool isPlayerConnected( Int playerID ) override;
 
@@ -203,6 +204,7 @@ protected:
 	Int m_frameRate;
 	Int m_lastExecutionFrame;																	///< The highest frame number that a command could have been executed on.
 	Int m_lastFrameCompleted;
+	UnsignedInt m_firstGameFrame;																	///< Resync fork: the first frame that is executed in game, 1 unless the game was resumed
 	Bool m_didSelfSlug;
 	__int64 m_perfCountFreq;														///< The frequency of the performance counter.
 
@@ -333,6 +335,7 @@ void Network::init()
 	m_frameRate = 30;
 	m_lastExecutionFrame = m_runAhead - 1; // subtract 1 since we're starting on frame 0
 	m_lastFrameCompleted = m_runAhead - 1; // subtract 1 since we're starting on frame 0
+	m_firstGameFrame = 1;
 	m_frameDataReady = FALSE;
 	m_isStalling = FALSE;
 	m_didSelfSlug = FALSE;
@@ -375,6 +378,32 @@ void Network::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte tar
 Bool Network::isResyncInProgress()
 {
 	return m_conMgr != nullptr && m_conMgr->isResyncInProgress();
+}
+
+/**
+ * Resync fork: every player loaded the same checkpoint at the start of the game, so the logic
+ * continues after the checkpoint frame instead of after frame 0. Set up the frame data like
+ * parseUserList() does for a new game, but shifted to that frame. This must happen before any
+ * frame info is sent, which only starts after the first game frame.
+ */
+void Network::rebaseFrames(UnsignedInt frame)
+{
+	if (m_conMgr == nullptr || m_localStatus != NETLOCALSTATUS_PREGAME)
+	{
+		DEBUG_CRASH(("Network::rebaseFrames - the game is already running"));
+		return;
+	}
+
+	m_conMgr->destroyGameMessages();
+	m_conMgr->resetFrameData();
+	m_conMgr->zeroFrames(frame + 1, m_runAhead - 1);
+
+	m_lastFrame = frame;
+	m_lastExecutionFrame = frame + m_runAhead - 1;
+	m_lastFrameCompleted = frame + m_runAhead - 1;
+	m_firstGameFrame = frame + 1;
+
+	DEBUG_LOG(("Network::rebaseFrames - continuing after frame %u", frame));
 }
 
 void Network::setSawCRCMismatch()
@@ -514,9 +543,9 @@ Bool Network::processCommand(GameMessage *msg)
 		if (m_localStatus == NETLOCALSTATUS_PREGAME) {
 			// a sort-of-hack that prevents extraneous frames from being executed before the game actually starts.
 			// Idealy this shouldn't be necessary, but I don't think its hurting anything by being here.
-			if (TheGameLogic->getFrame() == 1) {
+			if (TheGameLogic->getFrame() == m_firstGameFrame) {
 				m_localStatus = NETLOCALSTATUS_INGAME;
-				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
+				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(m_firstGameFrame - 1); // clear out frame 0 since we skipped it
 				deleteInstance(netcmdlist);
 			} else {
 				return FALSE;
