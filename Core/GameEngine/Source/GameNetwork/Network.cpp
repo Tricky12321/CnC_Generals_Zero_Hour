@@ -733,9 +733,13 @@ void Network::update()
 		endOfGameCheck();
 	}
 
-	// Resync fork: hold the logic at the resync frame until the game state transfer is finished.
-	if (m_conMgr != nullptr && m_conMgr->isResyncHoldingFrame(TheGameLogic->getFrame())) {
-		return;
+	// Resync fork: load a received game state here, outside of the network command processing,
+	// and hold the logic at the resync frame until every resynced player has loaded it.
+	if (m_conMgr != nullptr) {
+		m_conMgr->updateResyncLoad();
+		if (m_conMgr->isResyncHoldingFrame(TheGameLogic->getFrame())) {
+			return;
+		}
 	}
 
 	if (AllCommandsReady(TheGameLogic->getFrame())) {

@@ -25,7 +25,8 @@
 //  2. Every client stops advancing the logic at the hold frame.
 //  3. The donor (lowest slot of the majority) saves its game state, compresses it and sends it
 //     in chunks to the targets with NETCOMMANDTYPE_RESYNC.
-//  4. Each target reassembles the state and announces NETRESYNCTYPE_DONE to everyone.
+//  4. Each target reassembles the state, loads it in place of its own game state once its logic
+//     is at the hold frame, and announces NETRESYNCTYPE_DONE to everyone.
 //  5. When all targets are done, every client resumes.
 // If the transfer fails or times out, the normal CRC mismatch handling takes over.
 
@@ -54,6 +55,7 @@ public:
 
 	void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC);
 	void processResyncCommand(NetResyncCommandMsg *msg, ConnectionManager *conMgr);
+	void updateLoad(ConnectionManager *conMgr);					///< Load a received game state, must be called outside of the network command processing
 
 	Bool isResyncInProgress() const { return m_state != RESYNCSTATE_NONE; }
 	Bool isHoldingFrame(UnsignedInt frame) const { return m_state != RESYNCSTATE_NONE && frame >= m_holdFrame; }
@@ -77,6 +79,7 @@ private:
 	UnsignedInt m_majorityCRC;
 	UnsignedInt m_transferStartTime;
 	UnsignedInt m_lastProgressMessageTime;
+	UnsignedInt m_resyncCount;					///< Resyncs started in this game, the same on every client
 
 	// Donor side
 	std::vector<UnsignedByte> m_payload;
@@ -90,4 +93,5 @@ private:
 	std::vector<Bool> m_rxChunks;
 	UnsignedInt m_rxChunksReceived;
 	Bool m_rxComplete;
+	Bool m_rxLoadPending;						///< The received state still has to be loaded
 };

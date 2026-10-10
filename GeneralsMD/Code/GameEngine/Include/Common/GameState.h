@@ -171,6 +171,8 @@ public:
 										 SnapshotType which = SNAPSHOT_SAVELOAD );  ///< save a game
 	SaveResult missionSave();																 ///< do a in between mission save
 	SaveCode loadGame( AvailableGameInfo gameInfo );							 ///< load a save file
+	SaveCode loadGameForResync( AsciiString filename );					 ///< Resync fork: load a multiplayer game state in place, keeping the network
+	Bool isInResyncLoad() const { return m_isInResyncLoad; }		 ///< Resync fork: is loadGameForResync() running
 	void loadQueuedSaveGame();																 ///< load the save file requested on startup
 	SaveGameInfo *getSaveGameInfo() { return &m_gameInfo; }
 
@@ -238,6 +240,7 @@ private:
 	AvailableGameInfo *m_availableGames;		///< list of available games we can save over or load from
 
 	Bool m_isInLoadGame; // Brutal hack to allow bone pos validation while loading games
+	Bool m_isInResyncLoad;
 };
 
 // EXTERNALS //////////////////////////////////////////////////////////////////////////////////////

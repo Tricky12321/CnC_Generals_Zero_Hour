@@ -475,8 +475,12 @@ void GameLogic::reset()
 	}
 	m_forceGameStartByTimeOut = FALSE;
 	m_consecutiveCRCMismatches = 0;
-	m_resyncTestCRCsSent = 0;
-	TheCRCDiagnostics->reset();
+	// Resync fork: a resync load continues the same game
+	if (TheGameState == nullptr || !TheGameState->isInResyncLoad())
+	{
+		m_resyncTestCRCsSent = 0;
+		TheCRCDiagnostics->reset();
+	}
 
 	delete TheStatsCollector;
 	TheStatsCollector = nullptr;
@@ -640,6 +644,11 @@ static void placeNetworkBuildingsForPlayer(Int slotNum, const GameSlot *pSlot, P
 // ------------------------------------------------------------------------------------------------
 LoadScreen *GameLogic::getLoadScreen( Bool loadingSaveGame )
 {
+	// Resync fork: only this client loads during a resync, the multiplayer load screen would
+	// report load progress to the others, who are in the running game.
+	if (TheGameState && TheGameState->isInResyncLoad())
+		return NEW ShellGameLoadScreen;
+
 	switch (m_gameMode)
 	{
 	case GAME_SHELL:
@@ -2259,7 +2268,15 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 
 	updateLoadProgress(LOAD_PROGRESS_END);
 
-	if(isInMultiplayerGame() && TheNetwork)
+	if (TheGameState->isInResyncLoad())
+	{
+		// Resync fork: only this client loads, the others are waiting in the running game.
+		for (Int resyncSlot = 0; resyncSlot < MAX_SLOTS; ++resyncSlot)
+		{
+			m_progressComplete[resyncSlot] = TRUE;
+		}
+	}
+	else if(isInMultiplayerGame() && TheNetwork)
 	{
 		TheNetwork->loadProgressComplete();
 		TheNetwork->liteupdate();
@@ -2389,7 +2406,9 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 
 	// If we are now starting a multiplayer or skirmish game, let us set the local players selectionto be the command center
 	// We'll ask the Recorder, so we survive replays
-	if( TheRecorder->isMultiplayer() )
+	// Resync fork: not when a resync loads a game state, the selection is part of the loaded state
+	// and changing it on this client only would desync it again.
+	if( TheRecorder->isMultiplayer() && !TheGameState->isInResyncLoad() )
 	{
 		// Iterate through each player's objects, and ask if the object
 		//is a command center, and if so, select it for that player

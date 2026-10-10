@@ -37,6 +37,7 @@
 #include "Common/GlobalData.h"
 #include "Common/LatchRestore.h"
 #include "Common/MapObject.h"
+#include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/RandomValue.h"
 #include "Common/Radar.h"
@@ -54,6 +55,7 @@
 #include "GameClient/InGameUI.h"
 #include "GameClient/ParticleSys.h"
 #include "GameClient/TerrainVisual.h"
+#include "GameClient/View.h"
 #include "GameLogic/AI.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GhostObject.h"
@@ -284,6 +286,7 @@ GameState::GameState()
 
 	m_availableGames = nullptr;
 	m_isInLoadGame = FALSE;
+	m_isInResyncLoad = FALSE;
 
 }
 
@@ -753,6 +756,78 @@ SaveCode GameState::loadGame( AvailableGameInfo gameInfo )
 
 	return SC_OK;
 
+}
+
+// ------------------------------------------------------------------------------------------------
+/** Resync fork: load the game state that a resync received from the majority into the running
+	* multiplayer game. Unlike loadGame(), this keeps TheNetwork and the replay recording alive, and
+	* keeps the local player's view. The logic frame of the loaded state must be the frame the
+	* network is held at. If this fails, the game state is gone and the caller must end the game. */
+// ------------------------------------------------------------------------------------------------
+SaveCode GameState::loadGameForResync( AsciiString filename )
+{
+	if( doesSaveGameExist( filename ) == FALSE )
+		return SC_FILE_NOT_FOUND;
+
+	LatchRestore<Bool> inResyncLoad(m_isInResyncLoad, TRUE);
+
+	// the camera is local, it must not jump to where the player that sent the state was looking
+	const Real cameraAngle = TheTacticalView->getAngle();
+	const Real cameraZoom = TheTacticalView->getZoom();
+	Coord3D cameraPos = TheTacticalView->getPosition();
+
+	TheGameStateMap->clearScratchPadMaps();
+
+	AsciiString filepath = getSaveGamePathForRead(filename);
+
+	XferLoad xferLoad;
+	xferLoad.open( filepath );
+
+	TheGameEngine->resetKeepingNetwork();
+
+	TheGhostObjectManager->saveLockGhostObjects( TRUE );
+
+	LatchRestore<Bool> inLoadGame(m_isInLoadGame, TRUE);
+
+	Bool error = FALSE;
+	try
+	{
+		xferSaveData( &xferLoad, SNAPSHOT_SAVELOAD );
+	}
+	catch( ... )
+	{
+		error = TRUE;
+	}
+
+	xferLoad.close();
+
+	TheGhostObjectManager->saveLockGhostObjects( FALSE );
+
+	try
+	{
+		gameStatePostProcessLoad();
+	}
+	catch (...)
+	{
+		error = TRUE;
+	}
+
+	if( error == TRUE )
+	{
+		DEBUG_LOG(("GameState::loadGameForResync - failed to load '%s'", filepath.str()));
+		return SC_INVALID_DATA;
+	}
+
+	// the ghost objects remember the fog of war of every player, show the local one
+	Player *localPlayer = ThePlayerList->getLocalPlayer();
+	if( localPlayer )
+		TheGhostObjectManager->setLocalPlayerIndex( localPlayer->getPlayerIndex() );
+
+	TheTacticalView->setAngle( cameraAngle );
+	TheTacticalView->setZoom( cameraZoom );
+	TheTacticalView->lookAt( &cameraPos );
+
+	return SC_OK;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1515,6 +1590,17 @@ void GameState::xferSaveData( Xfer *xfer, SnapshotType which )
 
 				// find matching token in the save file lexicon
 				blockInfo = findBlockInfoByToken( token, which );
+
+				// Resync fork: the replay recording of this client continues, it must not take
+				// over the recorder state of the player that sent the game state.
+				if( blockInfo != nullptr && m_isInResyncLoad && token.compareNoCase( "CHUNK_Recorder" ) == 0 )
+				{
+					DEBUG_LOG(( "GameState::xferSaveData - Skipping block '%s' for resync", token.str() ));
+					Int dataSize = xfer->beginBlock();
+					xfer->skip( dataSize );
+					continue;
+				}
+
 				if( blockInfo == nullptr )
 				{
 
@@ -1636,7 +1722,7 @@ void GameState::gameStatePostProcessLoad()
 	// triggers handleShroud() on objects whose m_lastCell (not serialized) differs from their actual
 	// cell position, which causes unlook()+look() to run and corrupts the shroud state.
 	Bool isReplayCheckpoint = (TheRecorder && TheRecorder->isPlaybackMode());
-	if ( isReplayCheckpoint )
+	if ( isReplayCheckpoint || m_isInResyncLoad )
 	{
 		ThePartitionManager->initLastCellsForDirtyModules();
 	}

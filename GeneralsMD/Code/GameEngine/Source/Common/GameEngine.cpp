@@ -803,6 +803,12 @@ void GameEngine::reset()
 }
 
 /// -----------------------------------------------------------------------------------------------
+void GameEngine::resetKeepingNetwork()
+{
+	resetSubsystems();
+}
+
+/// -----------------------------------------------------------------------------------------------
 void GameEngine::resetSubsystems()
 {
 	// TheSuperHackers @fix xezon 09/06/2025 Reset GameLogic first to purge all world objects early.
