@@ -41,8 +41,11 @@ static const UnsignedInt RESYNC_CHUNK_SIZE = MAX_PACKET_SIZE - 64;
 // have no unacknowledged commands left, which keeps the transport queues from overflowing.
 static const UnsignedInt RESYNC_CHUNKS_PER_ROUND = 32;
 
-// Give up on the transfer after this long and fall back to the normal mismatch handling.
-static const UnsignedInt RESYNC_TIMEOUT_MS = 120000;
+// Give up on the transfer and the load after this long and fall back to the normal mismatch handling.
+static const UnsignedInt RESYNC_TIMEOUT_MS = 180000;
+
+// A game that keeps going out of sync is not worth holding again and again.
+static const UnsignedInt RESYNC_MAX_PER_GAME = 6;
 
 // Upper limit for an announced game state, to reject garbage from the network.
 static const UnsignedInt RESYNC_MAX_PAYLOAD_SIZE = 64 * 1024 * 1024;
@@ -68,6 +71,7 @@ void ResyncManager::init()
 	m_majorityCRC = 0;
 	m_transferStartTime = 0;
 	m_lastProgressMessageTime = 0;
+	m_resyncCount = 0;
 
 	m_payload.clear();
 	m_sendOffset = 0;
@@ -78,6 +82,7 @@ void ResyncManager::init()
 	m_rxChunks.clear();
 	m_rxChunksReceived = 0;
 	m_rxComplete = FALSE;
+	m_rxLoadPending = FALSE;
 }
 
 void ResyncManager::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC)
@@ -90,6 +95,14 @@ void ResyncManager::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedBy
 
 	DEBUG_LOG(("ResyncManager::beginResync - hold frame %d, donor %d, targets 0x%X, majority CRC %8.8X",
 		holdFrame, donorSlot, targetMask, majorityCRC));
+
+	++m_resyncCount;
+	if (m_resyncCount > RESYNC_MAX_PER_GAME)
+	{
+		m_holdFrame = holdFrame;
+		abortResync("too many resyncs in this game");
+		return;
+	}
 
 	m_state = RESYNCSTATE_WAITING_FOR_HOLD_FRAME;
 	m_holdFrame = holdFrame;
@@ -295,6 +308,7 @@ void ResyncManager::prepareReceive(UnsignedInt holdFrame)
 	m_rxChunks.clear();
 	m_rxChunksReceived = 0;
 	m_rxComplete = FALSE;
+	m_rxLoadPending = FALSE;
 }
 
 void ResyncManager::processResyncCommand(NetResyncCommandMsg *msg, ConnectionManager *conMgr)
@@ -395,7 +409,7 @@ void ResyncManager::finishReceive(ConnectionManager *conMgr)
 	DEBUG_LOG(("ResyncManager::finishReceive - received %d bytes of game state for frame %d", (Int)state.size(), m_rxHoldFrame));
 
 #if RTS_ZEROHOUR
-	// Phase 2: store the received state. Loading it into the running game comes in phase 3.
+	// The game state is loaded from the save directory, like a save game. updateLoad() loads it.
 	AsciiString path = TheGameState->getFilePathInSaveDirectory(RESYNC_RECEIVED_FILENAME);
 	File *file = TheLocalFileSystem->openFile(path.str(), File::WRITE | File::CREATE | File::TRUNCATE | File::BINARY);
 	if (file == nullptr)
@@ -405,9 +419,53 @@ void ResyncManager::finishReceive(ConnectionManager *conMgr)
 	}
 	file->write(&state[0], state.size());
 	file->close();
+
+	m_rxPayload.clear();
+	m_rxLoadPending = TRUE;
+	TheInGameUI->messageNoFormat(UnicodeString(L"Resync: game state received, loading..."));
+#else
+	abortResync("loading a game state is not supported");
+#endif
+}
+
+void ResyncManager::updateLoad(ConnectionManager *conMgr)
+{
+	if (!m_rxLoadPending || m_state != RESYNCSTATE_TRANSFERRING || m_rxHoldFrame != m_holdFrame)
+	{
+		return;
+	}
+
+	// The state is the one of the hold frame. A client that is behind gets there first, the logic
+	// does not advance past the hold frame.
+	if (TheGameLogic->getFrame() < m_holdFrame)
+	{
+		return;
+	}
+	m_rxLoadPending = FALSE;
+
+	if (TheGameLogic->getFrame() != m_holdFrame)
+	{
+		abortResync("logic passed the hold frame");
+		return;
+	}
+
+#if RTS_ZEROHOUR
+	DEBUG_LOG(("ResyncManager::updateLoad - loading the game state for frame %d", m_holdFrame));
+	SaveCode result = TheGameState->loadGameForResync(RESYNC_RECEIVED_FILENAME);
+	if (result != SC_OK)
+	{
+		abortResync("could not load game state");
+		return;
+	}
+	if (TheGameLogic->getFrame() != m_holdFrame)
+	{
+		DEBUG_LOG(("ResyncManager::updateLoad - loaded frame %d, expected %d", TheGameLogic->getFrame(), m_holdFrame));
+		abortResync("loaded game state has the wrong frame");
+		return;
+	}
 #endif
 
-	TheInGameUI->messageNoFormat(UnicodeString(L"Resync: game state received"));
+	TheInGameUI->messageNoFormat(UnicodeString(L"Resync: game state loaded"));
 
 	m_rxDoneMask |= (1 << conMgr->getLocalPlayerID());
 	sendDone(conMgr);

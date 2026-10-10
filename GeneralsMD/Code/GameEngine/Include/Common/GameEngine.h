@@ -71,6 +71,8 @@ public:
 	virtual Bool getQuitting();						///< is app getting ready to quit.
 
 	virtual Bool isMultiplayerSession();
+
+	void resetKeepingNetwork();						///< Resync fork: reset like reset(), but keep TheNetwork for a game state load in a running multiplayer game
 	virtual void serviceWindowsOS() {};		///< service the native OS
 	virtual Bool isActive() {return m_isActive;}	///< returns whether app has OS focus.
 	virtual void setIsActive(Bool isActive) { m_isActive = isActive; };

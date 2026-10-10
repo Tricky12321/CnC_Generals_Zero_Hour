@@ -455,6 +455,14 @@ Bool ConnectionManager::isResyncHoldingFrame(UnsignedInt frame) const
 	return m_resyncManager != nullptr && m_resyncManager->isHoldingFrame(frame);
 }
 
+void ConnectionManager::updateResyncLoad()
+{
+	if (m_resyncManager != nullptr)
+	{
+		m_resyncManager->updateLoad(this);
+	}
+}
+
 void ConnectionManager::attachTransport(Transport *transport) {
 	delete m_transport;
 	m_transport = transport;

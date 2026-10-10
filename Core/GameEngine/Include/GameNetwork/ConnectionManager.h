@@ -133,6 +133,7 @@ public:
 	void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC);
 	Bool isResyncInProgress() const;
 	Bool isResyncHoldingFrame(UnsignedInt frame) const;
+	void updateResyncLoad();
 
 	void notifyOthersOfCurrentFrame(Int frame);
 	void sendFrameDataToPlayer(UnsignedInt playerID, UnsignedInt startingFrame);
