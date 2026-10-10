@@ -165,6 +165,8 @@ public:
 	virtual void initTransport() override;
 
 	virtual void setSawCRCMismatch() override;
+	virtual void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC) override;
+	virtual Bool isResyncInProgress() override;
 	virtual Bool sawCRCMismatch() override { return m_sawCRCMismatch; }
 	virtual Bool isPlayerConnected( Int playerID ) override;
 
@@ -360,6 +362,19 @@ void Network::init()
 #if defined(RTS_DEBUG)
 	m_networkOn = TRUE;
 #endif
+}
+
+void Network::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC)
+{
+	if (m_conMgr != nullptr)
+	{
+		m_conMgr->beginResync(holdFrame, donorSlot, targetMask, majorityCRC);
+	}
+}
+
+Bool Network::isResyncInProgress()
+{
+	return m_conMgr != nullptr && m_conMgr->isResyncInProgress();
 }
 
 void Network::setSawCRCMismatch()
@@ -716,6 +731,11 @@ void Network::update()
 	if (m_localStatus == NETLOCALSTATUS_LEFT) {
 		// || (m_localStatus == NETLOCALSTATUS_LEAVING)) {
 		endOfGameCheck();
+	}
+
+	// Resync fork: hold the logic at the resync frame until the game state transfer is finished.
+	if (m_conMgr != nullptr && m_conMgr->isResyncHoldingFrame(TheGameLogic->getFrame())) {
+		return;
 	}
 
 	if (AllCommandsReady(TheGameLogic->getFrame())) {

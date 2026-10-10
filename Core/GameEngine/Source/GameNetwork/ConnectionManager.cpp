@@ -228,6 +228,9 @@ ConnectionManager::~ConnectionManager()
 	delete m_disconnectManager;
 	m_disconnectManager = nullptr;
 
+	delete m_resyncManager;
+	m_resyncManager = nullptr;
+
 	deleteInstance(m_pendingCommands);
 	m_pendingCommands = nullptr;
 
@@ -254,6 +257,7 @@ ConnectionManager::ConnectionManager()
 	}
 	m_transport = nullptr;
 	m_disconnectManager = nullptr;
+	m_resyncManager = nullptr;
 	m_pendingCommands = nullptr;
 	m_relayedCommands = nullptr;
 	m_localAddr = 0;
@@ -322,6 +326,10 @@ void ConnectionManager::init()
 
 	m_disconnectManager = NEW DisconnectManager;
 	m_disconnectManager->init();
+
+	delete m_resyncManager;
+	m_resyncManager = NEW ResyncManager;
+	m_resyncManager->init();
 
 	TheDisconnectMenu->attachDisconnectManager(m_disconnectManager);
 	TheDisconnectMenu->hideScreen();
@@ -418,6 +426,33 @@ Bool ConnectionManager::isPlayerConnected( Int playerID )
 {
 	DEBUG_ASSERTCRASH( playerID < MAX_SLOTS, ("ConnectionManager::isPlayerConnected - %d is an invalid player number", playerID) );
 	return ( playerID == m_localSlot || (m_connections[playerID] && !m_connections[playerID]->isQuitting()) );
+}
+
+Bool ConnectionManager::isConnectionQueueEmpty( Int playerID )
+{
+	if (playerID < 0 || playerID >= MAX_SLOTS || m_connections[playerID] == nullptr)
+	{
+		return TRUE;
+	}
+	return m_connections[playerID]->isQueueEmpty();
+}
+
+void ConnectionManager::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC)
+{
+	if (m_resyncManager != nullptr)
+	{
+		m_resyncManager->beginResync(holdFrame, donorSlot, targetMask, majorityCRC);
+	}
+}
+
+Bool ConnectionManager::isResyncInProgress() const
+{
+	return m_resyncManager != nullptr && m_resyncManager->isResyncInProgress();
+}
+
+Bool ConnectionManager::isResyncHoldingFrame(UnsignedInt frame) const
+{
+	return m_resyncManager != nullptr && m_resyncManager->isHoldingFrame(frame);
 }
 
 void ConnectionManager::attachTransport(Transport *transport) {
@@ -626,6 +661,12 @@ Bool ConnectionManager::processNetCommand(NetCommandRef *ref) {
 
 		case NETCOMMANDTYPE_FRAMERESENDREQUEST:
 			processFrameResendRequest((NetFrameResendRequestCommandMsg *)msg);
+			return TRUE;
+
+		case NETCOMMANDTYPE_RESYNC:
+			if (m_resyncManager != nullptr) {
+				m_resyncManager->processResyncCommand((NetResyncCommandMsg *)msg, this);
+			}
 			return TRUE;
 
 		default:
@@ -1309,6 +1350,7 @@ void ConnectionManager::update(Bool isInGame) {
 
 	if (isInGame) {
 		m_disconnectManager->update(this);
+		m_resyncManager->update(this);
 	}
 
 	// take the packets from the transport, break them up into commands, and give them to the appropriate connections.

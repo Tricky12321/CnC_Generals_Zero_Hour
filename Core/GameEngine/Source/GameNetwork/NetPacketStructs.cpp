@@ -226,6 +226,9 @@ NetCommandMsg *SmallNetPacketCommandBase::constructNetCommandMsg(const CommandBa
 	case NETCOMMANDTYPE_FILE:
 		msg = newInstance(NetFileCommandMsg);
 		break;
+	case NETCOMMANDTYPE_RESYNC:
+		msg = newInstance(NetResyncCommandMsg);
+		break;
 	case NETCOMMANDTYPE_FILEANNOUNCE:
 		msg = newInstance(NetFileAnnounceCommandMsg);
 		break;
@@ -1138,6 +1141,79 @@ size_t NetPacketFileCommandBase::copyBytes(UnsignedByte *buffer, const NetComman
 	base.commandType.commandType = msg->getNetCommandType();
 	base.relay.relay = ref.getRelay();
 	//base.frame.frame = msg->getExecutionFrame();
+	base.playerId.playerId = msg->getPlayerID();
+	base.commandId.commandId = msg->getID();
+
+	return network::writeObject(buffer, base);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// NetPacketResyncCommand
+////////////////////////////////////////////////////////////////////////////////
+
+size_t NetPacketResyncCommandData::getSize(const NetCommandMsg &msg)
+{
+	const CommandMsg *cmdMsg = static_cast<const CommandMsg *>(&msg);
+
+	return sizeof(FixedData) + cmdMsg->getDataLength();
+}
+
+size_t NetPacketResyncCommandData::copyBytes(UnsignedByte *buffer, const NetCommandRef &ref)
+{
+	const CommandMsg *cmdMsg = static_cast<const CommandMsg *>(ref.getCommand());
+	FixedData data;
+	data.resyncType = cmdMsg->getResyncType();
+	data.holdFrame = cmdMsg->getHoldFrame();
+	data.totalLength = cmdMsg->getTotalLength();
+	data.offset = cmdMsg->getOffset();
+	data.stateCRC = cmdMsg->getStateCRC();
+	data.dataLength = cmdMsg->getDataLength();
+
+	size_t size = 0;
+	size += network::writeObject(buffer + size, data);
+	size += network::writeBytes(buffer + size, cmdMsg->getData(), cmdMsg->getDataLength());
+	return size;
+}
+
+size_t NetPacketResyncCommandData::readMessage(NetCommandRef &ref, NetPacketBuf buf)
+{
+	CommandMsg *cmdMsg = static_cast<CommandMsg *>(ref.getCommand());
+	FixedData data;
+	data.resyncType = 0;
+	data.holdFrame = 0;
+	data.totalLength = 0;
+	data.offset = 0;
+	data.stateCRC = 0;
+	data.dataLength = 0;
+
+	size_t size = 0;
+	size += network::readObject(data, buf.offset(size));
+
+	// A single resync command never carries more than one packet worth of data.
+	if (data.dataLength > MAX_PACKET_SIZE)
+	{
+		data.dataLength = 0;
+	}
+
+	NetCommandDataChunk dataChunk(data.dataLength);
+	size += network::readBytes(dataChunk.data(), dataChunk.size(), buf.offset(size));
+
+	cmdMsg->setResyncType(data.resyncType);
+	cmdMsg->setHoldFrame(data.holdFrame);
+	cmdMsg->setTotalLength(data.totalLength);
+	cmdMsg->setOffset(data.offset);
+	cmdMsg->setStateCRC(data.stateCRC);
+	cmdMsg->setData(dataChunk);
+
+	return size;
+}
+
+size_t NetPacketResyncCommandBase::copyBytes(UnsignedByte *buffer, const NetCommandRef &ref)
+{
+	const NetCommandMsg *msg = ref.getCommand();
+	CommandBase base;
+	base.commandType.commandType = msg->getNetCommandType();
+	base.relay.relay = ref.getRelay();
 	base.playerId.playerId = msg->getPlayerID();
 	base.commandId.commandId = msg->getID();
 

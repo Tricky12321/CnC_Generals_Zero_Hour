@@ -1038,6 +1038,42 @@ NetCommandMsg::Select NetFileCommandMsg::getSmallNetPacketSelect() const {
 }
 
 //-------------------------
+// NetResyncCommandMsg
+//-------------------------
+NetResyncCommandMsg::NetResyncCommandMsg() {
+	m_commandType = NETCOMMANDTYPE_RESYNC;
+	m_resyncType = NETRESYNCTYPE_CHUNK;
+	m_holdFrame = 0;
+	m_totalLength = 0;
+	m_offset = 0;
+	m_stateCRC = 0;
+	m_data = nullptr;
+	m_dataLength = 0;
+}
+
+NetResyncCommandMsg::~NetResyncCommandMsg() {
+	delete[] m_data;
+	m_data = nullptr;
+}
+
+void NetResyncCommandMsg::setData(NetCommandDataChunk &dataChunk)
+{
+	delete[] m_data;
+	m_dataLength = dataChunk.size();
+	m_data = dataChunk.release();
+}
+
+NetCommandMsg::Select NetResyncCommandMsg::getSmallNetPacketSelect() const {
+	Select select;
+	select.useCommandType = 1;
+	select.useRelay = 1;
+	select.useFrame = 0;
+	select.usePlayerId = 1;
+	select.useCommandId = 1;
+	return select;
+}
+
+//-------------------------
 // NetFileAnnounceCommandMsg
 //-------------------------
 NetFileAnnounceCommandMsg::NetFileAnnounceCommandMsg() {

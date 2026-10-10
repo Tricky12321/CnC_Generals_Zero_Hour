@@ -476,6 +476,16 @@ Int parseSetCwd(char *args[], int num)
 }
 
 #if RTS_ZEROHOUR
+Int parseResyncTest(char *args[], int num)
+{
+	if (num > 1)
+	{
+		TheWritableGlobalData->m_resyncTestFrame = atoi(args[1]);
+		return 2;
+	}
+	return 1;
+}
+
 Int parseSaveAtFrame(char *args[], int num)
 {
 	if (num > 1)
@@ -1238,6 +1248,11 @@ static CommandLineParam paramsForStartup[] =
 	// The file is loaded from the Save directory.
 	// Usage: -replay 00000000.rep -loadCheckpoint checkpoint.sav
 	{ "-loadCheckpoint", parseLoadCheckpoint },
+
+	// Resync fork: from the given frame on, this client sends wrong CRCs for a few checks,
+	// so it ends up in the minority and gets resynced by the others. For testing only.
+	// Usage: -resyncTest 3000
+	{ "-resyncTest", parseResyncTest },
 #endif
 };
 

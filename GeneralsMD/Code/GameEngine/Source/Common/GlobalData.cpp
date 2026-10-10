@@ -999,6 +999,7 @@ GlobalData::GlobalData()
 	m_replaySaveAtFrame = 0;
 	m_replaySaveTo.clear();
 	m_loadReplayCheckpoint.clear();
+	m_resyncTestFrame = 0;
 
 	for (i = LEVEL_FIRST; i <= LEVEL_LAST; ++i)
 		m_healthBonus[i] = 1.0f;

@@ -238,6 +238,7 @@ GameLogic::GameLogic()
 
 	m_shouldValidateCRCs = FALSE;
 	m_consecutiveCRCMismatches = 0;
+	m_resyncTestCRCsSent = 0;
 
 	m_startNewGame = FALSE;
 
@@ -456,6 +457,7 @@ void GameLogic::reset()
 	}
 	m_forceGameStartByTimeOut = FALSE;
 	m_consecutiveCRCMismatches = 0;
+	m_resyncTestCRCsSent = 0;
 
 	delete TheStatsCollector;
 	TheStatsCollector = nullptr;
@@ -2710,7 +2712,9 @@ void GameLogic::processCommandList( CommandList *list )
 		}
 
 		// Tolerate isolated CRC mismatches: only treat it as a desync when the CRCs
-		// differ on CRC_MISMATCH_TOLERANCE validations in a row.
+		// differ on CRC_MISMATCH_TOLERANCE validations in a row. Then the majority decides:
+		// the players with a minority CRC get the game state of the majority. Without a
+		// majority it is a normal mismatch.
 		static const UnsignedInt CRC_MISMATCH_TOLERANCE = 5;
 		if (sawCRCMismatch)
 		{
@@ -2718,6 +2722,11 @@ void GameLogic::processCommandList( CommandList *list )
 			DEBUG_LOG(("CRC Mismatch %d of %d in a row on frame %d", m_consecutiveCRCMismatches, CRC_MISMATCH_TOLERANCE, getFrame()));
 			if (m_consecutiveCRCMismatches < CRC_MISMATCH_TOLERANCE)
 			{
+				sawCRCMismatch = FALSE;
+			}
+			else if (startResyncFromMajority())
+			{
+				m_consecutiveCRCMismatches = 0;
 				sawCRCMismatch = FALSE;
 			}
 		}
@@ -2741,6 +2750,87 @@ void GameLogic::processCommandList( CommandList *list )
 		}
 	}
 
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Resync fork: group the CRCs of this frame by value. If one group is a strict majority of the
+	* connected players, start a resync of everyone else from the lowest slot of that group.
+	* Every client sees the same frame synchronized CRCs, so they all make the same decision. */
+//-------------------------------------------------------------------------------------------------
+Bool GameLogic::startResyncFromMajority()
+{
+	if (TheNetwork == nullptr || TheNetwork->isResyncInProgress())
+	{
+		return FALSE;
+	}
+
+	UnsignedInt groupCRC[MAX_SLOTS];
+	UnsignedByte groupMask[MAX_SLOTS];
+	Int groupCount[MAX_SLOTS];
+	Int numGroups = 0;
+	Int numVoters = 0;
+	UnsignedByte voterMask = 0;
+
+	for (CachedCRCMap::const_iterator it = m_cachedCRCs.begin(); it != m_cachedCRCs.end(); ++it)
+	{
+		const Int slotIndex = ThePlayerList->getSlotIndex(it->first);
+		if (slotIndex < 0 || slotIndex >= MAX_SLOTS || !TheNetwork->isPlayerConnected(slotIndex))
+		{
+			continue;
+		}
+
+		++numVoters;
+		voterMask |= (1 << slotIndex);
+
+		Int group = 0;
+		while (group < numGroups && groupCRC[group] != it->second)
+		{
+			++group;
+		}
+		if (group == numGroups)
+		{
+			groupCRC[group] = it->second;
+			groupMask[group] = 0;
+			groupCount[group] = 0;
+			++numGroups;
+		}
+		groupMask[group] |= (1 << slotIndex);
+		++groupCount[group];
+	}
+
+	Int majorityGroup = -1;
+	for (Int group = 0; group < numGroups; ++group)
+	{
+		if (groupCount[group] * 2 > numVoters)
+		{
+			majorityGroup = group;
+		}
+	}
+
+	if (majorityGroup < 0)
+	{
+		DEBUG_LOG(("GameLogic::startResyncFromMajority - no CRC majority among %d players on frame %d", numVoters, m_frame));
+		return FALSE;
+	}
+
+	const UnsignedByte targetMask = voterMask & ~groupMask[majorityGroup];
+	if (targetMask == 0)
+	{
+		return FALSE;
+	}
+
+	Int donorSlot = 0;
+	while ((groupMask[majorityGroup] & (1 << donorSlot)) == 0)
+	{
+		++donorSlot;
+	}
+
+	DEBUG_LOG(("GameLogic::startResyncFromMajority - frame %d, majority CRC %8.8X (%d of %d players), donor %d, targets 0x%X",
+		m_frame, groupCRC[majorityGroup], groupCount[majorityGroup], numVoters, donorSlot, targetMask));
+
+	// Hold the logic before the next frame executes.
+	TheNetwork->beginResync(m_frame + 1, donorSlot, targetMask, groupCRC[majorityGroup]);
+	return TRUE;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -3823,8 +3913,20 @@ void GameLogic::update()
 			m_CRC = getCRC( CRC_RECALC );
 			bool isPlayback = (TheRecorder && TheRecorder->isPlaybackMode());
 
+			// Resync fork: -resyncTest makes this client report wrong CRCs for a while, so the
+			// others see it in the minority and resync it.
+			UnsignedInt sentCRC = m_CRC;
+			static const UnsignedInt RESYNC_TEST_WRONG_CRCS = 5;
+			if (generateForMP && TheGlobalData->m_resyncTestFrame != 0 && m_frame >= TheGlobalData->m_resyncTestFrame &&
+				m_resyncTestCRCsSent < RESYNC_TEST_WRONG_CRCS)
+			{
+				sentCRC ^= 0x5A5A5A5A;
+				++m_resyncTestCRCsSent;
+				DEBUG_LOG(("GameLogic::update - -resyncTest sending wrong CRC %8.8X instead of %8.8X on frame %d", sentCRC, m_CRC, m_frame));
+			}
+
 			GameMessage *msg = newInstance(GameMessage)(GameMessage::MSG_LOGIC_CRC);
-			msg->appendIntegerArgument(m_CRC);
+			msg->appendIntegerArgument(sentCRC);
 			msg->appendBooleanArgument(isPlayback);
 
 			// TheSuperHackers @info helmutbuhler 13/04/2025
