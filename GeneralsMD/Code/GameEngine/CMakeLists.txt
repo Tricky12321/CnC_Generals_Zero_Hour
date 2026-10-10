@@ -243,6 +243,7 @@ set(GAMEENGINE_SRC
 #    Include/GameLogic/Damage.h
     Include/GameLogic/ExperienceTracker.h
     Include/GameLogic/FiringTracker.h
+    Include/GameLogic/CRCDiagnostics.h
     Include/GameLogic/FPUControl.h
     Include/GameLogic/GameLogic.h
     Include/GameLogic/GhostObject.h
@@ -1078,6 +1079,7 @@ set(GAMEENGINE_SRC
 #    Source/GameLogic/System/CaveSystem.cpp
 #    Source/GameLogic/System/CrateSystem.cpp
 #    Source/GameLogic/System/Damage.cpp
+    Source/GameLogic/System/CRCDiagnostics.cpp
     Source/GameLogic/System/GameLogic.cpp
 #    Source/GameLogic/System/GameLogicDispatch.cpp
 #    Source/GameLogic/System/RankInfo.cpp
