@@ -29,6 +29,7 @@ class PathfindZoneManager;
  */
 class PathfindLayer
 {
+	friend class Pathfinder;  ///< TheSuperHackers @info bobtista 21/01/2026 Allows Pathfinder::xfer to serialize layer state
 public:
 	PathfindLayer();
 	~PathfindLayer();

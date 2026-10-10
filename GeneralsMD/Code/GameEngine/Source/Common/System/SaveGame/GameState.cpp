@@ -34,11 +34,13 @@
 #include "Common/GameEngine.h"
 #include "Common/GameState.h"
 #include "Common/GameStateMap.h"
+#include "Common/GlobalData.h"
 #include "Common/LatchRestore.h"
 #include "Common/MapObject.h"
 #include "Common/PlayerList.h"
 #include "Common/RandomValue.h"
 #include "Common/Radar.h"
+#include "Common/Recorder.h"
 #include "Common/Team.h"
 #include "Common/WellKnownKeys.h"
 #include "Common/XferLoad.h"
@@ -52,6 +54,7 @@
 #include "GameClient/InGameUI.h"
 #include "GameClient/ParticleSys.h"
 #include "GameClient/TerrainVisual.h"
+#include "GameLogic/AI.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GhostObject.h"
 #include "GameLogic/PartitionManager.h"
@@ -59,6 +62,7 @@
 #include "GameLogic/SidesList.h"
 #include "GameLogic/TerrainLogic.h"
 #include "Lib/PathUtil.h"
+#include "GameLogic/VictoryConditions.h"
 
 
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
@@ -324,6 +328,12 @@ void GameState::init()
 	addSnapshotBlock( "CHUNK_ParticleSystem",					TheParticleSystemManager,	SNAPSHOT_SAVELOAD );
 	addSnapshotBlock( "CHUNK_TerrainVisual",					TheTerrainVisual,					SNAPSHOT_SAVELOAD );
 	addSnapshotBlock( "CHUNK_GhostObject",						TheGhostObjectManager,		SNAPSHOT_SAVELOAD );
+	addSnapshotBlock( "CHUNK_Recorder",							TheRecorder,							SNAPSHOT_SAVELOAD );
+	// TheSuperHackers @info bobtista 19/01/2026 TheAI state is included in CRC but was not saved
+	addSnapshotBlock( "CHUNK_AI",									TheAI,									SNAPSHOT_SAVELOAD );
+	// TheSuperHackers @bugfix bobtista 02/02/2026 VictoryConditions state needs to be saved to prevent
+	// re-triggering defeat events after checkpoint load
+	addSnapshotBlock( "CHUNK_VictoryConditions",				TheVictoryConditions,				SNAPSHOT_SAVELOAD );
 
 	// add all the snapshot objects to our list of data blocks for deep CRCs of logic
 	addSnapshotBlock( "CHUNK_TeamFactory",						TheTeamFactory,						SNAPSHOT_DEEPCRC_LOGICONLY );
@@ -332,6 +342,8 @@ void GameState::init()
 	addSnapshotBlock( "CHUNK_ScriptEngine",						TheScriptEngine,					SNAPSHOT_DEEPCRC_LOGICONLY );
 	addSnapshotBlock( "CHUNK_SidesList",							TheSidesList,							SNAPSHOT_DEEPCRC_LOGICONLY );
 	addSnapshotBlock( "CHUNK_Partition",							ThePartitionManager,			SNAPSHOT_DEEPCRC_LOGICONLY );
+	// TheSuperHackers @info bobtista 19/01/2026 TheAI state is included in CRC but was not in deep CRC list
+	addSnapshotBlock( "CHUNK_AI",									TheAI,									SNAPSHOT_DEEPCRC_LOGICONLY );
 
 	m_isInLoadGame = FALSE;
 
@@ -1411,6 +1423,26 @@ void GameState::xferSaveData( Xfer *xfer, SnapshotType which )
 
 			DEBUG_LOG(("Looking at block '%s'", blockName.str()));
 
+			// Skip blocks with nullptr snapshot (can happen in headless mode)
+			if( blockInfo->snapshot == nullptr )
+			{
+				DEBUG_LOG(("Skipping block '%s' because snapshot is nullptr", blockName.str()));
+				continue;
+			}
+
+			// Skip visual-only blocks when saving in headless mode
+			// Note: CHUNK_TerrainVisual must NOT be skipped because it contains the height map data
+			// which is used by game logic for getGroundHeight() calculations. Building construction
+			// modifies the height map to flatten terrain, and this data must be preserved in saves.
+			if( TheGlobalData->m_headless &&
+				(blockName.compareNoCase( "CHUNK_TacticalView" ) == 0 ||
+				 blockName.compareNoCase( "CHUNK_ParticleSystem" ) == 0 ||
+				 blockName.compareNoCase( "CHUNK_GhostObject" ) == 0) )
+			{
+				DEBUG_LOG(("Skipping block '%s' in headless mode", blockName.str()));
+				continue;
+			}
+
 			//
 			// for mission save files, we only save the game state block and campaign manager
 			// because anything else is not needed.
@@ -1598,6 +1630,16 @@ void GameState::gameStatePostProcessLoad()
 
 	// clear the snapshot post process list as we are now done with it
 	m_snapshotPostProcessList.clear();
+
+	// TheSuperHackers @bugfix bobtista 20/01/2026 Initialize m_lastCell for all dirty modules before
+	// running the partition update when loading a replay checkpoint. Without this, the partition update
+	// triggers handleShroud() on objects whose m_lastCell (not serialized) differs from their actual
+	// cell position, which causes unlook()+look() to run and corrupts the shroud state.
+	Bool isReplayCheckpoint = (TheRecorder && TheRecorder->isPlaybackMode());
+	if ( isReplayCheckpoint )
+	{
+		ThePartitionManager->initLastCellsForDirtyModules();
+	}
 
 	// evil... must ensure this is updated prior to the script engine running the first time.
 	ThePartitionManager->update();

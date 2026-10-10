@@ -1558,7 +1558,7 @@ void AIInternalMoveToState::crc( Xfer *xfer )
 void AIInternalMoveToState::xfer( Xfer *xfer )
 {
   // version
-  XferVersion currentVersion = 1;
+  XferVersion currentVersion = 2;
   XferVersion version = currentVersion;
   xfer->xferVersion( &version, currentVersion );
 
@@ -1570,6 +1570,13 @@ void AIInternalMoveToState::xfer( Xfer *xfer )
 	xfer->xferUnsignedInt(&m_pathTimestamp);
 	xfer->xferUnsignedInt(&m_blockedRepathTimestamp);
 	xfer->xferBool(&m_adjustDestinations);
+
+	// TheSuperHackers @bugfix bobtista 21/01/2026 Serialize m_tryOneMoreRepath to maintain
+	// movement state after checkpoint load
+	if ( version >= 2 )
+	{
+		xfer->xferBool(&m_tryOneMoreRepath);
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1617,6 +1624,7 @@ StateReturnType AIInternalMoveToState::onEnter()
 	m_ambientPlayingHandle = AHSV_Error;
 	Object *obj = getMachineOwner();
 	AIUpdateInterface *ai = obj->getAI();
+
 	m_waitingForPath = ai->isWaitingForPath();
 
 	if( obj->testStatus( OBJECT_STATUS_IMMOBILE ) )
@@ -1783,6 +1791,7 @@ StateReturnType AIInternalMoveToState::update()
 	//}
 
 	Path *thePath = ai->getPath();
+
 	if (m_waitingForPath)
 	{
 		// bump the timer.
@@ -1876,9 +1885,9 @@ StateReturnType AIInternalMoveToState::update()
 		ai->setLocomotorGoalPositionOnPath();
 
 	// if our goal has moved, recompute our path
-	if (forceRecompute || TheGameLogic->getFrame() - m_pathTimestamp > MIN_REPATH_TIME)
+	if (forceRecompute || (TheGameLogic->getFrame() - m_pathTimestamp > MIN_REPATH_TIME))
 	{
-		if (forceRecompute || !isSamePosition(obj->getPosition(), &m_pathGoalPosition, &m_goalPosition ))
+		if (forceRecompute || !isSamePosition(obj->getPosition(), &m_pathGoalPosition, &m_goalPosition))
 		{
 			// goal moved - repath
 			if (!computePath())
@@ -2051,8 +2060,9 @@ StateReturnType AIMoveToState::onEnter()
 				m_goalPosition.z += halfHeight;
 			}
 		}
-	} else
+	} else {
 		m_goalPosition = *getMachineGoalPosition();
+	}
 
 	StateReturnType ret = AIInternalMoveToState::onEnter();
 	if (getMachineOwner()->getFormationID() != NO_FORMATION_ID) {
@@ -2548,6 +2558,10 @@ void AIAttackApproachTargetState::loadPostProcess()
 {
  // extend base class
   AIInternalMoveToState::loadPostProcess();
+
+	// TheSuperHackers @bugfix bobtista 21/01/2026 Reset approach timestamp after checkpoint load
+	// to prevent immediate path recomputation that would bypass rate limiting.
+	m_approachTimestamp = TheGameLogic ? TheGameLogic->getFrame() : 0;
 }
 
 //----------------------------------------------------------------------------------------------------------
@@ -2947,6 +2961,10 @@ void AIAttackPursueTargetState::loadPostProcess()
 {
  // extend base class
   AIInternalMoveToState::loadPostProcess();
+
+	// TheSuperHackers @bugfix bobtista 21/01/2026 Reset approach timestamp after checkpoint load
+	// to prevent immediate path recomputation that would bypass rate limiting.
+	m_approachTimestamp = TheGameLogic ? TheGameLogic->getFrame() : 0;
 }
 
 //----------------------------------------------------------------------------------------------------------
@@ -3239,7 +3257,7 @@ void AIFollowPathState::crc( Xfer *xfer )
 void AIFollowPathState::xfer( Xfer *xfer )
 {
   // version
-  XferVersion currentVersion = 1;
+  XferVersion currentVersion = 2;
   XferVersion version = currentVersion;
   xfer->xferVersion( &version, currentVersion );
 
@@ -3248,6 +3266,13 @@ void AIFollowPathState::xfer( Xfer *xfer )
 	xfer->xferInt(&m_index);
 	xfer->xferBool(&m_adjustFinal);
 	xfer->xferBool(&m_adjustFinalOverride);
+
+	// TheSuperHackers @bugfix bobtista 21/01/2026 Serialize m_retryCount to maintain
+	// retry state after checkpoint load
+	if ( version >= 2 )
+	{
+		xfer->xferInt(&m_retryCount);
+	}
 }
 
 // ------------------------------------------------------------------------------------------------

@@ -475,6 +475,44 @@ Int parseSetCwd(char *args[], int num)
 	return 1;
 }
 
+#if RTS_ZEROHOUR
+Int parseSaveAtFrame(char *args[], int num)
+{
+	if (num > 1)
+	{
+		TheWritableGlobalData->m_replaySaveAtFrame = atoi(args[1]);
+		return 2;
+	}
+	return 1;
+}
+
+Int parseSaveTo(char *args[], int num)
+{
+	if (num > 1)
+	{
+		TheWritableGlobalData->m_replaySaveTo = args[1];
+		return 2;
+	}
+	return 1;
+}
+
+Int parseLoadCheckpoint(char *args[], int num)
+{
+	if (num > 1)
+	{
+		TheWritableGlobalData->m_loadReplayCheckpoint = args[1];
+		TheWritableGlobalData->m_playIntro = FALSE;
+		TheWritableGlobalData->m_afterIntro = TRUE;
+		TheWritableGlobalData->m_playSizzle = FALSE;
+		TheWritableGlobalData->m_shellMapOn = FALSE;
+		rts::ClientInstance::setMultiInstance(TRUE);
+		rts::ClientInstance::skipPrimaryInstance();
+		return 2;
+	}
+	return 1;
+}
+#endif
+
 Int parseXRes(char *args[], int num)
 {
 	if (num > 1)
@@ -1187,6 +1225,21 @@ static CommandLineParam paramsForStartup[] =
 	// The last successful selection wins; otherwise use the executable directory.
 	{ "-setCwd", parseSetCwd },
 	{ "-useCwd", parseUseCwd },
+
+#if RTS_ZEROHOUR
+	// TheSuperHackers @feature bobtista 15/01/2026
+	// Auto-save a checkpoint at the specified frame during replay playback.
+	// The file is saved to the Save directory (e.g. "My Documents\Command and Conquer Generals Zero Hour Data\Save\").
+	// Usage: -replay 00000000.rep -saveAtFrame 49000 -saveTo checkpoint.sav
+	{ "-saveAtFrame", parseSaveAtFrame },
+	{ "-saveTo", parseSaveTo },
+
+	// TheSuperHackers @feature bobtista 15/01/2026
+	// Load a replay checkpoint and continue playback from that point.
+	// The file is loaded from the Save directory.
+	// Usage: -replay 00000000.rep -loadCheckpoint checkpoint.sav
+	{ "-loadCheckpoint", parseLoadCheckpoint },
+#endif
 };
 
 // These Params are parsed during Engine Init before INI data is loaded

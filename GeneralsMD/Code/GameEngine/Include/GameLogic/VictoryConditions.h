@@ -28,9 +28,11 @@
 
 #pragma once
 
+#include "Common/Snapshot.h"
 #include "Common/SubsystemInterface.h"
 
 class Player;
+class Xfer;
 
 /*
  * bitfield for specifying which victory conditions will apply in multiplayer games
@@ -45,7 +47,7 @@ enum VictoryType CPP_11(: Int)
   * VictoryConditionsInterface class - maintains information about the game setup and
 	* the contents of its slot list throughout the game.
 	*/
-class VictoryConditionsInterface : public SubsystemInterface
+class VictoryConditionsInterface : public SubsystemInterface, public Snapshot
 {
 public:
 	VictoryConditionsInterface() { m_victoryConditions = 0; }
@@ -68,6 +70,12 @@ public:
 	virtual Bool isLocalDefeat() = 0;												///< convenience function
 	virtual Bool amIObserver() = 0;													///< Am I an observer?( need this for scripts )
 	virtual UnsignedInt getEndFrame() = 0;									///< on which frame was the game effectively over?
+
+	// Snapshot interface
+	virtual void crc( Xfer *xfer ) = 0;
+	virtual void xfer( Xfer *xfer ) = 0;
+	virtual void loadPostProcess( void ) = 0;
+
 protected:
 	Int m_victoryConditions;
 };
