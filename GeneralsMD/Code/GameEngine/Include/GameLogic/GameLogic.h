@@ -378,6 +378,7 @@ private:
 	typedef std::map<Int, UnsignedInt> CachedCRCMap;
 	CachedCRCMap m_cachedCRCs;															///< CRCs we've seen this frame
 	Bool m_shouldValidateCRCs;															///< Should we validate CRCs this frame?
+	UnsignedInt m_consecutiveCRCMismatches;									///< Number of CRC validations in a row that did not match
 	//-----------------------------------------------------------------------------------------------
 	//Bool m_loadingScene;
 	Bool m_loadingMap;

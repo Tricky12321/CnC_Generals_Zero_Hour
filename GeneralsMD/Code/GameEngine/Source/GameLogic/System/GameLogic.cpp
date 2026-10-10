@@ -237,6 +237,7 @@ GameLogic::GameLogic()
 	}
 
 	m_shouldValidateCRCs = FALSE;
+	m_consecutiveCRCMismatches = 0;
 
 	m_startNewGame = FALSE;
 
@@ -454,6 +455,7 @@ void GameLogic::reset()
 		m_progressCompleteTimeout[i] = 0;
 	}
 	m_forceGameStartByTimeOut = FALSE;
+	m_consecutiveCRCMismatches = 0;
 
 	delete TheStatsCollector;
 	TheStatsCollector = nullptr;
@@ -2705,6 +2707,23 @@ void GameLogic::processCommandList( CommandList *list )
 					}
 				}
 			}
+		}
+
+		// Tolerate isolated CRC mismatches: only treat it as a desync when the CRCs
+		// differ on CRC_MISMATCH_TOLERANCE validations in a row.
+		static const UnsignedInt CRC_MISMATCH_TOLERANCE = 5;
+		if (sawCRCMismatch)
+		{
+			++m_consecutiveCRCMismatches;
+			DEBUG_LOG(("CRC Mismatch %d of %d in a row on frame %d", m_consecutiveCRCMismatches, CRC_MISMATCH_TOLERANCE, getFrame()));
+			if (m_consecutiveCRCMismatches < CRC_MISMATCH_TOLERANCE)
+			{
+				sawCRCMismatch = FALSE;
+			}
+		}
+		else
+		{
+			m_consecutiveCRCMismatches = 0;
 		}
 
 		if (sawCRCMismatch)
