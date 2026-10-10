@@ -107,7 +107,7 @@ int ReplaySimulation::simulateReplaysInThisProcess(const std::vector<AsciiString
 				{
 					// TheSuperHackers @info bobtista 19/01/2026
 					// Pass just the filename to saveGame() - it will be saved to the Save directory.
-					SaveCode result = TheGameState->saveGame(TheGlobalData->m_replaySaveTo, UnicodeString::TheEmptyString, SAVE_FILE_TYPE_NORMAL);
+					SaveCode result = TheGameState->saveGame(TheGlobalData->m_replaySaveTo, UnicodeString::TheEmptyString, SAVE_FILE_TYPE_NORMAL).saveCode;
 					if (result != SC_OK)
 					{
 						numErrors++;
@@ -327,8 +327,6 @@ int ReplaySimulation::continueReplayFromCheckpoint(const AsciiString &checkpoint
 
 	while (TheRecorder->isPlaybackInProgress())
 	{
-		TheGameClient->updateHeadless();
-
 #ifdef _DEBUG
 		const int progressFrameInterval = 10*60*LOGICFRAMES_PER_SECOND;
 		if (TheGameLogic->getFrame() != 0 && TheGameLogic->getFrame() % progressFrameInterval == 0)

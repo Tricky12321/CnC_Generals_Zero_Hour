@@ -4007,7 +4007,7 @@ void GameLogic::update()
 		UnicodeString desc;
 		desc.format(L"Replay checkpoint at frame %u", m_frame);
 		DEBUG_LOG(("Auto-saving checkpoint at frame %u (after frame increment) to %s", m_frame, saveName.str()));
-		SaveCode result = TheGameState->saveGame(saveName, desc, SAVE_FILE_TYPE_NORMAL, SNAPSHOT_SAVELOAD);
+		SaveCode result = TheGameState->saveGame(saveName, desc, SAVE_FILE_TYPE_NORMAL, SNAPSHOT_SAVELOAD).saveCode;
 		if (result != SC_OK)
 		{
 			DEBUG_LOG(("WARNING: Failed to save checkpoint, error code %d", result));

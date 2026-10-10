@@ -502,7 +502,6 @@ Int parseLoadCheckpoint(char *args[], int num)
 	{
 		TheWritableGlobalData->m_loadReplayCheckpoint = args[1];
 		TheWritableGlobalData->m_playIntro = FALSE;
-		TheWritableGlobalData->m_afterIntro = TRUE;
 		TheWritableGlobalData->m_playSizzle = FALSE;
 		TheWritableGlobalData->m_shellMapOn = FALSE;
 		rts::ClientInstance::setMultiInstance(TRUE);

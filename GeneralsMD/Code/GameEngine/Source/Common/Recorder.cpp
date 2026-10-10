@@ -1060,9 +1060,8 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 			}
 		}
 
-		Int currentFrame = TheGameLogic ? TheGameLogic->getFrame() : -1;
 		DEBUG_LOG(("RecorderClass::handleCRCMessage() - Adding CRC %8.8X to queue (frame %d, queueSize before: %d)",
-			newCRC, currentFrame, m_crcInfo.GetQueueSize()));
+			newCRC, TheGameLogic ? TheGameLogic->getFrame() : -1, m_crcInfo.GetQueueSize()));
 		m_crcInfo.addCRC(newCRC);
 		DEBUG_LOG(("RecorderClass::handleCRCMessage() - Queue size after add: %d", m_crcInfo.GetQueueSize()));
 		return;

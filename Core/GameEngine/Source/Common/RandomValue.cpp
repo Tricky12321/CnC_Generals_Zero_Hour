@@ -181,17 +181,6 @@ static UnsignedInt randomValue(UnsignedInt (&seed)[6])
 // of the effects displayed on the GameClient.
 //
 
-UnsignedInt GetGameLogicRandomSeed( void )
-{
-	return theGameLogicBaseSeed;
-}
-
-UnsignedInt GetGameLogicRandomSeedCRC( void )
-{
-	CRC c;
-	c.computeCRC(theGameLogicSeed, 6*sizeof(UnsignedInt));
-	return c.get();
-}
 
 // TheSuperHackers @info bobtista 19/01/2026
 // Get the full RNG state for serialization in checkpoints.
