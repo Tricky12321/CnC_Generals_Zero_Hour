@@ -108,6 +108,9 @@ public:
 	void processCommandList( CommandList *list );		///< process the command list
 	Bool startResyncFromMajority();								///< Resync fork: let the CRC majority resync the minority
 	void writeCRCMismatchReport(UnsignedInt tolerance);			///< Resync fork: write the CRC diagnostics of a mismatch
+	Bool canResimulateTo(UnsignedInt frame) const;					///< Resync fork: are the commands of all frames before this one recorded?
+	Bool resimulateForResync(UnsignedInt targetFrame);			///< Resync fork: rebuild the game state by replaying the recorded commands
+	Bool isResimulating() const { return m_isResimulating; }
 
 	void prepareNewGame( GameMode gameMode, GameDifficulty diff, Int rankPoints );						///< prepare for new game
 
@@ -382,6 +385,12 @@ private:
 	Bool m_shouldValidateCRCs;															///< Should we validate CRCs this frame?
 	UnsignedInt m_resyncTestCRCsSent;											///< Resync fork: wrong CRCs sent for -resyncTest
 	UnsignedInt m_consecutiveCRCMismatches;									///< Number of CRC validations in a row that did not match
+	Bool m_isResimulating;																	///< Resync fork: resimulateForResync() is running
+	Bool m_resimulationDiverged;														///< Resync fork: the resimulation does not match the majority CRCs
+	enum { RESIM_CRC_HISTORY = 4 };
+	UnsignedInt m_resimulatedCRCs[RESIM_CRC_HISTORY];						///< Resync fork: the last CRCs calculated during the resimulation
+	UnsignedInt m_resimulatedCRCCount;
+	void verifyResimulatedCRCs();
 	//-----------------------------------------------------------------------------------------------
 	//Bool m_loadingScene;
 	Bool m_loadingMap;

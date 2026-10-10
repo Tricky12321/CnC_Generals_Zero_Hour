@@ -28,7 +28,10 @@
 //  4. Each target reassembles the state, loads it in place of its own game state once its logic
 //     is at the hold frame, and announces NETRESYNCTYPE_DONE to everyone.
 //  5. When all targets are done, every client resumes.
-// If the transfer fails or times out, the normal CRC mismatch handling takes over.
+// Every second resync of a game uses resimulation instead of steps 3 and 4: the targets replay the
+// recorded commands of the game from the start up to the hold frame. That does not depend on the
+// save game code being exact. A target whose state load fails resimulates as well.
+// If the transfer, load or resimulation fails or times out, the normal CRC mismatch handling takes over.
 
 #pragma once
 
@@ -36,6 +39,12 @@
 
 class ConnectionManager;
 class NetResyncCommandMsg;
+
+enum ResyncMethodType CPP_11(: Int)
+{
+	RESYNCMETHOD_STATE,							///< The donor sends its game state
+	RESYNCMETHOD_RESIMULATE,				///< The targets replay the game from the recorded commands
+};
 
 enum ResyncStateType CPP_11(: Int)
 {
@@ -69,6 +78,9 @@ private:
 	void sendDone(ConnectionManager *conMgr);
 	void checkFinished();
 	void abortResync(const char *reason);
+	Bool resimulate();
+	Bool isLocalTarget(ConnectionManager *conMgr) const;
+	UnsignedInt getTimeout() const;
 
 	UnsignedByte getConnectedMask(ConnectionManager *conMgr) const;
 
@@ -80,6 +92,8 @@ private:
 	UnsignedInt m_transferStartTime;
 	UnsignedInt m_lastProgressMessageTime;
 	UnsignedInt m_resyncCount;					///< Resyncs started in this game, the same on every client
+	ResyncMethodType m_method;
+	Bool m_resimulatePending;						///< This target still has to resimulate
 
 	// Donor side
 	std::vector<UnsignedByte> m_payload;
