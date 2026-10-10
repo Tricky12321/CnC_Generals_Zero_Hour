@@ -27,6 +27,6 @@ target_link_libraries(z_wdump PRIVATE
 )
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
-    target_compile_definitions(z_wdump PRIVATE _AFXDLL)
+    rts_use_mfc_dll(z_wdump)
     target_sources(z_wdump PRIVATE wdump.rc)
 endif()

@@ -61,6 +61,6 @@ target_link_libraries(core_babylon PRIVATE
 )
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
-    target_compile_definitions(core_babylon PRIVATE _AFXDLL)
+    rts_use_mfc_dll(core_babylon)
     target_sources(core_babylon PRIVATE Babylon.rc)
 endif()
