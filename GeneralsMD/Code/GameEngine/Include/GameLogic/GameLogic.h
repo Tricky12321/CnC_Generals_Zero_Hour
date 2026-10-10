@@ -107,6 +107,7 @@ public:
 #endif
 	void processCommandList( CommandList *list );		///< process the command list
 	Bool startResyncFromMajority();								///< Resync fork: let the CRC majority resync the minority
+	void writeCRCMismatchReport(UnsignedInt tolerance);			///< Resync fork: write the CRC diagnostics of a mismatch
 
 	void prepareNewGame( GameMode gameMode, GameDifficulty diff, Int rankPoints );						///< prepare for new game
 

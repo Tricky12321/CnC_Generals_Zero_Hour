@@ -83,6 +83,7 @@
 #include "GameLogic/AI.h"
 #include "GameLogic/AIPathfind.h"
 #include "GameLogic/CaveSystem.h"
+#include "GameLogic/CRCDiagnostics.h"
 #include "GameLogic/CrateSystem.h"
 #include "GameLogic/FPUControl.h"
 #include "GameLogic/GameLogic.h"
@@ -196,6 +197,15 @@ static Waypoint * findNamedWaypoint(AsciiString name)
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
+static UnsignedInt s_expectedFPControl = 0;
+
+UnsignedInt getExpectedFPControl()
+{
+	return s_expectedFPControl;
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 void setFPMode()
 {
   // Set floating point round mode to CHOP, which only comes
@@ -216,6 +226,9 @@ void setFPMode()
 	newVal = (newVal & ~_MCW_PC) | (_PC_24   & _MCW_PC);
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
+
+	// Resync fork: remember the result, so CRCDiagnostics can detect when something changes it.
+	s_expectedFPControl = _controlfp(0, 0);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -239,6 +252,8 @@ GameLogic::GameLogic()
 	m_shouldValidateCRCs = FALSE;
 	m_consecutiveCRCMismatches = 0;
 	m_resyncTestCRCsSent = 0;
+
+	TheCRCDiagnostics = NEW CRCDiagnostics;
 
 	m_startNewGame = FALSE;
 
@@ -350,6 +365,9 @@ GameLogic::~GameLogic()
 	// destroy all remaining objects
 	destroyAllObjectsImmediate();
 
+	delete TheCRCDiagnostics;
+	TheCRCDiagnostics = nullptr;
+
 	// delete the logical terrain
 	delete TheTerrainLogic;
 	TheTerrainLogic = nullptr;
@@ -459,6 +477,7 @@ void GameLogic::reset()
 	m_forceGameStartByTimeOut = FALSE;
 	m_consecutiveCRCMismatches = 0;
 	m_resyncTestCRCsSent = 0;
+	TheCRCDiagnostics->reset();
 
 	delete TheStatsCollector;
 	TheStatsCollector = nullptr;
@@ -2721,6 +2740,7 @@ void GameLogic::processCommandList( CommandList *list )
 		{
 			++m_consecutiveCRCMismatches;
 			DEBUG_LOG(("CRC Mismatch %d of %d in a row on frame %d", m_consecutiveCRCMismatches, CRC_MISMATCH_TOLERANCE, getFrame()));
+			writeCRCMismatchReport(CRC_MISMATCH_TOLERANCE);
 			if (m_consecutiveCRCMismatches < CRC_MISMATCH_TOLERANCE)
 			{
 				sawCRCMismatch = FALSE;
@@ -2832,6 +2852,26 @@ Bool GameLogic::startResyncFromMajority()
 	// Hold the logic before the next frame executes.
 	TheNetwork->beginResync(m_frame + 1, donorSlot, targetMask, groupCRC[majorityGroup]);
 	return TRUE;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Resync fork: write the CRC diagnostics of the mismatched frame to a report file. */
+//-------------------------------------------------------------------------------------------------
+void GameLogic::writeCRCMismatchReport(UnsignedInt tolerance)
+{
+	Player *localPlayer = ThePlayerList->getLocalPlayer();
+	if (localPlayer == nullptr)
+	{
+		return;
+	}
+
+	CachedCRCMap::const_iterator it = m_cachedCRCs.find(localPlayer->getPlayerIndex());
+	if (it == m_cachedCRCs.end())
+	{
+		return;
+	}
+
+	TheCRCDiagnostics->writeMismatchReport(m_frame, it->second, m_cachedCRCs, m_consecutiveCRCMismatches, tolerance);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -3819,6 +3859,7 @@ void GameLogic::update()
 	unitTimings();
 #endif
 
+	TheCRCDiagnostics->noteFPModeBeforeFrame();
 	setFPMode();
 
 	/// @todo remove this hack
@@ -3876,6 +3917,7 @@ void GameLogic::update()
 	{
 		TheScriptEngine->UPDATE();
 	}
+	TheCRCDiagnostics->checkFPMode("ScriptEngine");
 
 	// TheSuperHackers @info Updates the frozen time status because it may have changed after the script engine update.
 	TheFramePacer->setTimeFrozen(TheGameEngine->isTimeFrozen());
@@ -3888,6 +3930,7 @@ void GameLogic::update()
 	{
 		TheTerrainLogic->UPDATE();
 	}
+	TheCRCDiagnostics->checkFPMode("TerrainLogic");
 
 	// force CRC calculation, so we can keep a cache of the last N CRCs.  We do this right where the recorder
 	// would be getting the CRC anyway, so replays can get the CRCs from the exact instant in time as the original.
@@ -3958,6 +4001,7 @@ void GameLogic::update()
 	{
 		processCommandList( TheCommandList );
 	}
+	TheCRCDiagnostics->checkFPMode("commands");
 
 #ifdef ALLOW_NONSLEEPY_UPDATES
 	{
@@ -3985,6 +4029,7 @@ void GameLogic::update()
 				#else
 					u->update();
 				#endif
+				TheCRCDiagnostics->checkFPMode("update module", u->friend_getObject());
 
 				m_curUpdateModule = nullptr;
 			}
@@ -4030,6 +4075,7 @@ void GameLogic::update()
 
 				sleepLen = u->update();
 				DEBUG_ASSERTCRASH(sleepLen > 0, ("you may not return 0 from update"));
+				TheCRCDiagnostics->checkFPMode("update module", u->friend_getObject());
 				if (sleepLen < 1)
 					sleepLen = UPDATE_SLEEP_NONE;
 
@@ -4049,16 +4095,19 @@ void GameLogic::update()
 	{
 		TheAI->UPDATE();
 	}
+	TheCRCDiagnostics->checkFPMode("AI");
 
 	// production updates
 	{
 		TheBuildAssistant->UPDATE();
 	}
+	TheCRCDiagnostics->checkFPMode("BuildAssistant");
 
 	// update partition info
 	{
 		ThePartitionManager->UPDATE();
 	}
+	TheCRCDiagnostics->checkFPMode("PartitionManager");
 
 	//
 	// End of frame clean-up
@@ -4066,6 +4115,7 @@ void GameLogic::update()
 
 	// destroy all pending objects
 	processDestroyList();
+	TheCRCDiagnostics->checkFPMode("destroy list");
 
 	// reset the command list, destroying all messages
 	TheCommandList->reset();
@@ -4073,6 +4123,7 @@ void GameLogic::update()
 	TheWeaponStore->UPDATE();
 	TheLocomotorStore->UPDATE();
 	TheVictoryConditions->UPDATE();
+	TheCRCDiagnostics->checkFPMode("stores and victory conditions");
 
 	{
 		//Handle disabled statii (and re-enable objects once frame matches)
@@ -4329,6 +4380,10 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 	if (mode != CRC_RECALC)
 		return m_CRC;
 
+	if (isInGameLogicUpdate())
+	{
+		TheCRCDiagnostics->checkFPMode("before CRC");
+	}
 	setFPMode();
 
 	// TheSuperHackers @info bobtista 20/01/2026
@@ -4372,12 +4427,24 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 	Object *obj;
 	DEBUG_ASSERTCRASH(this == TheGameLogic, ("Not in GameLogic"));
 
+	// Resync fork: record the running CRC of the logic frame CRCs for mismatch reports.
+	CRCDiagnostics *diag = nullptr;
+	if (isInGameLogicUpdate() && deepCRCFileName.isEmpty() && xferCRC->getXferMode() == XFER_CRC)
+	{
+		diag = TheCRCDiagnostics;
+		diag->beginFrame(m_frame);
+	}
+
 	marker = "MARKER:Objects";
 	xferCRC->xferAsciiString(&marker);
 	for( obj = m_objList; obj; obj=obj->getNextObject() )
 	{
 		xferCRC->xferSnapshot( obj );
+		if (diag)
+			diag->recordObject(obj, xferCRC->getCRC());
 	}
+	if (diag)
+		diag->recordSection(CRCSECTION_OBJECTS, xferCRC->getCRC());
 
 	UnsignedInt seed = GetGameLogicRandomSeedCRC();
 
@@ -4385,10 +4452,14 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 	{
 		xferCRC->xferUnsignedInt( &seed );
 	}
+	if (diag)
+		diag->recordSection(CRCSECTION_RANDOM_SEED, xferCRC->getCRC());
 
 	marker = "MARKER:ThePartitionManager";
 	xferCRC->xferAsciiString(&marker);
 	xferCRC->xferSnapshot( ThePartitionManager );
+	if (diag)
+		diag->recordSection(CRCSECTION_PARTITION, xferCRC->getCRC());
 
 #ifdef DEBUG_CRC
 	if ((g_crcModuleDataFromClient && !isInGameLogicUpdate()) ||
@@ -4407,10 +4478,14 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 	marker = "MARKER:ThePlayerList";
 	xferCRC->xferAsciiString(&marker);
 	xferCRC->xferSnapshot( ThePlayerList );
+	if (diag)
+		diag->recordSection(CRCSECTION_PLAYERS, xferCRC->getCRC());
 
 	marker = "MARKER:TheAI";
 	xferCRC->xferAsciiString(&marker);
 	xferCRC->xferSnapshot( TheAI );
+	if (diag)
+		diag->recordSection(CRCSECTION_AI, xferCRC->getCRC());
 
 	if (xferCRC->getXferMode() == XFER_SAVE)
 	{
@@ -4422,6 +4497,9 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 	xferCRC->close();
 
 	UnsignedInt theCRC = xferCRC->getCRC();
+
+	if (diag)
+		diag->endFrame(theCRC);
 
 	delete xferCRC;
 	xferCRC = nullptr;
