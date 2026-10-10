@@ -106,7 +106,7 @@ public:
 	Int getNumberSleepyUpdates() const {return m_sleepyUpdates.size();} //For profiling, so not in Release.
 #endif
 	void processCommandList( CommandList *list );		///< process the command list
-	Bool startResyncFromMajority();								///< Resync fork: let the CRC majority resync the minority
+	Bool startResyncFromMajority();								///< Resync fork: let the deciding CRC group resync everyone else
 	void writeCRCMismatchReport(UnsignedInt tolerance);			///< Resync fork: write the CRC diagnostics of a mismatch
 	Bool canResimulateTo(UnsignedInt frame) const;					///< Resync fork: are the commands of all frames before this one recorded?
 	void resumeFromMPCheckpoint();													///< Resync fork: continue a lost game from its checkpoint
@@ -392,6 +392,7 @@ private:
 	UnsignedInt m_resimulatedCRCs[RESIM_CRC_HISTORY];						///< Resync fork: the last CRCs calculated during the resimulation
 	UnsignedInt m_resimulatedCRCCount;
 	void verifyResimulatedCRCs();
+	Bool findDecidingCRC(Bool connectedOnly, UnsignedInt &crc, UnsignedByte &groupMask, UnsignedByte &voterMask, Int &groupCount, Int &numVoters) const;	///< Resync fork: the CRC of the largest group, the host's group on a tie
 	//-----------------------------------------------------------------------------------------------
 	//Bool m_loadingScene;
 	Bool m_loadingMap;

@@ -2780,9 +2780,9 @@ void GameLogic::processCommandList( CommandList *list )
 		}
 
 		// Tolerate isolated CRC mismatches: only treat it as a desync when the CRCs
-		// differ on CRC_MISMATCH_TOLERANCE validations in a row. Then the majority decides:
-		// the players with a minority CRC get the game state of the majority. Without a
-		// majority it is a normal mismatch.
+		// differ on CRC_MISMATCH_TOLERANCE validations in a row. Then the largest group of
+		// players with the same CRC decides, and on a tie the host's group: everyone else gets
+		// the game state of that group.
 		static const UnsignedInt CRC_MISMATCH_TOLERANCE = 5;
 		if (sawCRCMismatch)
 		{
@@ -2830,28 +2830,28 @@ void GameLogic::processCommandList( CommandList *list )
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Resync fork: group the CRCs of this frame by value. If one group is a strict majority of the
-	* connected players, start a resync of everyone else from the lowest slot of that group.
+/** Resync fork: group the CRCs of this frame by value and pick the deciding group: the largest
+	* group, or on a tie the group of the host. The host is the lowest slot that sent a CRC, which is
+	* slot 0 in a LAN game while the host is connected.
 	* Every client sees the same frame synchronized CRCs, so they all make the same decision. */
 //-------------------------------------------------------------------------------------------------
-Bool GameLogic::startResyncFromMajority()
+Bool GameLogic::findDecidingCRC(Bool connectedOnly, UnsignedInt &crc, UnsignedByte &groupMask, UnsignedByte &voterMask, Int &groupCount, Int &numVoters) const
 {
-	if (TheNetwork == nullptr || TheNetwork->isResyncInProgress())
-	{
-		return FALSE;
-	}
-
-	UnsignedInt groupCRC[MAX_SLOTS];
-	UnsignedByte groupMask[MAX_SLOTS];
-	Int groupCount[MAX_SLOTS];
+	UnsignedInt groupCRCs[MAX_SLOTS];
+	UnsignedByte groupMasks[MAX_SLOTS];
+	Int groupCounts[MAX_SLOTS];
 	Int numGroups = 0;
-	Int numVoters = 0;
-	UnsignedByte voterMask = 0;
+	numVoters = 0;
+	voterMask = 0;
 
 	for (CachedCRCMap::const_iterator it = m_cachedCRCs.begin(); it != m_cachedCRCs.end(); ++it)
 	{
 		const Int slotIndex = ThePlayerList->getSlotIndex(it->first);
-		if (slotIndex < 0 || slotIndex >= MAX_SLOTS || !TheNetwork->isPlayerConnected(slotIndex))
+		if (slotIndex < 0 || slotIndex >= MAX_SLOTS)
+		{
+			continue;
+		}
+		if (connectedOnly && !TheNetwork->isPlayerConnected(slotIndex))
 		{
 			continue;
 		}
@@ -2860,53 +2860,102 @@ Bool GameLogic::startResyncFromMajority()
 		voterMask |= (1 << slotIndex);
 
 		Int group = 0;
-		while (group < numGroups && groupCRC[group] != it->second)
+		while (group < numGroups && groupCRCs[group] != it->second)
 		{
 			++group;
 		}
 		if (group == numGroups)
 		{
-			groupCRC[group] = it->second;
-			groupMask[group] = 0;
-			groupCount[group] = 0;
+			groupCRCs[group] = it->second;
+			groupMasks[group] = 0;
+			groupCounts[group] = 0;
 			++numGroups;
 		}
-		groupMask[group] |= (1 << slotIndex);
-		++groupCount[group];
+		groupMasks[group] |= (1 << slotIndex);
+		++groupCounts[group];
 	}
 
-	Int majorityGroup = -1;
-	for (Int group = 0; group < numGroups; ++group)
+	if (numGroups == 0)
 	{
-		if (groupCount[group] * 2 > numVoters)
-		{
-			majorityGroup = group;
-		}
-	}
-
-	if (majorityGroup < 0)
-	{
-		DEBUG_LOG(("GameLogic::startResyncFromMajority - no CRC majority among %d players on frame %d", numVoters, m_frame));
 		return FALSE;
 	}
 
-	const UnsignedByte targetMask = voterMask & ~groupMask[majorityGroup];
+	Int hostSlot = 0;
+	while ((voterMask & (1 << hostSlot)) == 0)
+	{
+		++hostSlot;
+	}
+
+	Int largestCount = 0;
+	Int numLargest = 0;
+	Int decidingGroup = -1;
+	Int hostGroup = -1;
+	for (Int group = 0; group < numGroups; ++group)
+	{
+		if (groupMasks[group] & (1 << hostSlot))
+		{
+			hostGroup = group;
+		}
+		if (groupCounts[group] > largestCount)
+		{
+			largestCount = groupCounts[group];
+			numLargest = 1;
+			decidingGroup = group;
+		}
+		else if (groupCounts[group] == largestCount)
+		{
+			++numLargest;
+		}
+	}
+	if (numLargest > 1)
+	{
+		decidingGroup = hostGroup;
+	}
+
+	crc = groupCRCs[decidingGroup];
+	groupMask = groupMasks[decidingGroup];
+	groupCount = groupCounts[decidingGroup];
+	return TRUE;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Resync fork: start a resync of everyone outside the deciding CRC group from the lowest slot of
+	* that group. */
+//-------------------------------------------------------------------------------------------------
+Bool GameLogic::startResyncFromMajority()
+{
+	if (TheNetwork == nullptr || TheNetwork->isResyncInProgress())
+	{
+		return FALSE;
+	}
+
+	UnsignedInt decidingCRC;
+	UnsignedByte groupMask;
+	UnsignedByte voterMask;
+	Int groupCount;
+	Int numVoters;
+	if (!findDecidingCRC(TRUE, decidingCRC, groupMask, voterMask, groupCount, numVoters))
+	{
+		return FALSE;
+	}
+
+	const UnsignedByte targetMask = voterMask & ~groupMask;
 	if (targetMask == 0)
 	{
 		return FALSE;
 	}
 
 	Int donorSlot = 0;
-	while ((groupMask[majorityGroup] & (1 << donorSlot)) == 0)
+	while ((groupMask & (1 << donorSlot)) == 0)
 	{
 		++donorSlot;
 	}
 
-	DEBUG_LOG(("GameLogic::startResyncFromMajority - frame %d, majority CRC %8.8X (%d of %d players), donor %d, targets 0x%X",
-		m_frame, groupCRC[majorityGroup], groupCount[majorityGroup], numVoters, donorSlot, targetMask));
+	DEBUG_LOG(("GameLogic::startResyncFromMajority - frame %d, deciding CRC %8.8X (%d of %d players), donor %d, targets 0x%X",
+		m_frame, decidingCRC, groupCount, numVoters, donorSlot, targetMask));
 
 	// Hold the logic before the next frame executes.
-	TheNetwork->beginResync(m_frame + 1, donorSlot, targetMask, groupCRC[majorityGroup]);
+	TheNetwork->beginResync(m_frame + 1, donorSlot, targetMask, decidingCRC);
 	return TRUE;
 }
 
@@ -2932,8 +2981,8 @@ void GameLogic::writeCRCMismatchReport(UnsignedInt tolerance)
 
 //-------------------------------------------------------------------------------------------------
 /** Resync fork: during a resimulation, the CRC messages of the original game are executed again.
-	* Where the players had a majority CRC, it must be one that the resimulation calculated recently,
-	* otherwise the resimulation does not reproduce the game of the majority. */
+	* The deciding CRC of the players (see findDecidingCRC) must be one that the resimulation
+	* calculated recently, otherwise the resimulation does not reproduce the game that won. */
 //-------------------------------------------------------------------------------------------------
 void GameLogic::verifyResimulatedCRCs()
 {
@@ -2942,40 +2991,27 @@ void GameLogic::verifyResimulatedCRCs()
 		return;
 	}
 
-	Int numCRCs = 0;
-	for (CachedCRCMap::const_iterator it = m_cachedCRCs.begin(); it != m_cachedCRCs.end(); ++it)
+	UnsignedInt decidingCRC;
+	UnsignedByte groupMask;
+	UnsignedByte voterMask;
+	Int groupCount;
+	Int numVoters;
+	if (!findDecidingCRC(FALSE, decidingCRC, groupMask, voterMask, groupCount, numVoters))
 	{
-		++numCRCs;
-	}
-
-	for (CachedCRCMap::const_iterator candidate = m_cachedCRCs.begin(); candidate != m_cachedCRCs.end(); ++candidate)
-	{
-		Int count = 0;
-		for (CachedCRCMap::const_iterator other = m_cachedCRCs.begin(); other != m_cachedCRCs.end(); ++other)
-		{
-			if (other->second == candidate->second)
-			{
-				++count;
-			}
-		}
-		if (count * 2 <= numCRCs)
-		{
-			continue;
-		}
-
-		const UnsignedInt available = m_resimulatedCRCCount < RESIM_CRC_HISTORY ? m_resimulatedCRCCount : RESIM_CRC_HISTORY;
-		for (UnsignedInt n = 0; n < available; ++n)
-		{
-			if (m_resimulatedCRCs[n] == candidate->second)
-			{
-				return;
-			}
-		}
-
-		DEBUG_LOG(("GameLogic::verifyResimulatedCRCs - majority CRC %8.8X on frame %d was not reproduced", candidate->second, m_frame));
-		m_resimulationDiverged = TRUE;
 		return;
 	}
+
+	const UnsignedInt available = m_resimulatedCRCCount < RESIM_CRC_HISTORY ? m_resimulatedCRCCount : RESIM_CRC_HISTORY;
+	for (UnsignedInt n = 0; n < available; ++n)
+	{
+		if (m_resimulatedCRCs[n] == decidingCRC)
+		{
+			return;
+		}
+	}
+
+	DEBUG_LOG(("GameLogic::verifyResimulatedCRCs - deciding CRC %8.8X on frame %d was not reproduced", decidingCRC, m_frame));
+	m_resimulationDiverged = TRUE;
 }
 
 //-------------------------------------------------------------------------------------------------
