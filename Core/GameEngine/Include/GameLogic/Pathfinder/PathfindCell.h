@@ -71,7 +71,7 @@ public:
 	void setType( CellType type );	///< set the cell type
 	CellType getType() const { return (CellType)m_type; }				///< get the cell type
 	CellFlags getFlags() const { return (CellFlags)m_flags; }				///< get the cell type
-	void setFlags( CellFlags flags ) { m_flags = flags; }				///< set the cell flags (TheSuperHackers @bobtista 29/01/2026)
+	void setFlags( CellFlags flags ) { m_flags = flags; }				///< set the cell flags (TheSuperHackers @feature bobtista 29/01/2026)
 	Bool isAircraftGoal() const {return m_aircraftGoal != 0;}
 
 	Bool isObstaclePresent( ObjectID objID ) const;					///< return true if the given object ID is registered as an obstacle in this cell

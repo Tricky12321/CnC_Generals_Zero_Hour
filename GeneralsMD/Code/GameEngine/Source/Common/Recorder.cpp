@@ -1082,15 +1082,6 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 		UnsignedInt playbackCRC = m_crcInfo.readCRC();
 		DEBUG_LOG(("RecorderClass::handleCRCMessage() - Comparing CRCs: Replay:%8.8X Game:%8.8X Frame:%d QueueSize:%d",
 			playbackCRC, newCRC, TheGameLogic->getFrame(), m_crcInfo.GetQueueSize()));
-		// TheSuperHackers @info bobtista 23/01/2026 Print CRC comparison for checkpoint debugging
-		Int frame = TheGameLogic->getFrame();
-		if (playbackCRC != 0)
-		{
-			if (newCRC == playbackCRC)
-				printf("Frame %d: CRC Match %08X\n", frame, newCRC);
-			else
-				printf("Frame %d: CRC MISMATCH! Game:%08X Replay:%08X\n", frame, newCRC, playbackCRC);
-		}
 		// TheSuperHackers @fix bobtista 20/01/2026 Skip CRC check if queue was empty.
 		// The primary fix is preloadNextCRCFromReplay() which pre-populates the queue after checkpoint load.
 		// This playbackCRC != 0 check serves as a fallback in case the preload fails or misses a CRC.
@@ -1301,8 +1292,7 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 		tempStr.format("   CRC %8.8X vs %8.8X\n", TheGlobalData->m_iniCRC, header.iniCRC);
 		debugString.concat(tempStr);
 	}
-	// TheSuperHackers @bugfix bobtista 23/01/2026 Disabled for checkpoint testing with different exe versions
-	//DEBUG_ASSERTCRASH(!exeDifferent && !iniDifferent, (debugString.str()));
+	DEBUG_ASSERTCRASH(!exeDifferent && !iniDifferent, (debugString.str()));
 #endif
 
 #ifdef DEBUG_LOGGING
@@ -2023,7 +2013,7 @@ void RecorderClass::xferCRCInfo( Xfer *xfer )
 	}
 }
 
-// TheSuperHackers @helper bobtista 20/01/2026
+// TheSuperHackers @info bobtista 20/01/2026
 // Returns the byte size of an argument type when stored in the replay file.
 static Int getArgumentByteSize( GameMessageArgumentDataType type )
 {

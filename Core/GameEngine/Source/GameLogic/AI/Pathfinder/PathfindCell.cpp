@@ -73,7 +73,7 @@ void PathfindCell::reset()
 /**
  * Reset cell type and obstacle info for checkpoint load.
  * Preserves m_flags (unit tracking), m_zone (serialized), and m_aircraftGoal (serialized).
- * TheSuperHackers @bobtista 28/01/2026
+ * TheSuperHackers @feature bobtista 28/01/2026
  */
 void PathfindCell::resetForCheckpointLoad( void )
 {

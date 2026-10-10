@@ -400,21 +400,6 @@ void AIUpdateInterface::doPathfind( PathfindServicesInterface *pathfinder )
 	}
 	//CRCDEBUG_LOG(("AIUpdateInterface::doPathfind() for object %d", getObject()->getID()));
 	m_waitingForPath = FALSE;
-	// TheSuperHackers @debug bobtista 23/01/2026 Log pathfind parameters for checkpoint debugging
-#ifdef DEBUG_LOGGING
-	{
-		Int frame = TheGameLogic->getFrame();
-		if (false && frame >= 2444 && frame <= 2448) // TheSuperHackers @debug disabled
-		{
-			const Coord3D *pos = getObject()->getPosition();
-			DEBUG_LOG(("Pathfind[%d] doPathfind obj %u: pos=(%.6f,%.6f,%.6f) dest=(%.6f,%.6f,%.6f) isSafe=%d isApproach=%d isAttack=%d",
-				frame, getObject()->getID(),
-				pos->x, pos->y, pos->z,
-				m_requestedDestination.x, m_requestedDestination.y, m_requestedDestination.z,
-				m_isSafePath, m_isApproachPath, m_isAttackPath));
-		}
-	}
-#endif
 	if (m_isSafePath) {
 		destroyPath();
 		Coord3D pos1, pos2;

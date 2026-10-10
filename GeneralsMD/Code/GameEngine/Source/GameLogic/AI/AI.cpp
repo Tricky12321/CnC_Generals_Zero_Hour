@@ -1039,16 +1039,9 @@ void TAiData::loadPostProcess()
 //-----------------------------------------------------------------------------
 void AI::crc( Xfer *xfer )
 {
-	// TheSuperHackers @debug bobtista 23/01/2026 Add detailed CRC logging to find divergence
-	Int frame = TheGameLogic->getFrame();
-	Bool logDetail = (frame >= 4 && frame <= 6);
 
 	xfer->xferSnapshot( m_pathfinder );
 	CRCGEN_LOG(("CRC after AI pathfinder for frame %d is 0x%8.8X", TheGameLogic->getFrame(), ((XferCRC *)xfer)->getCRC()));
-	if (logDetail)
-	{
-		DEBUG_LOG(("AI::crc[%d] after pathfinder: 0x%08X", frame, ((XferCRC *)xfer)->getCRC()));
-	}
 
 	AsciiString marker;
 	TAiData *aiData = m_aiData;
@@ -1059,12 +1052,7 @@ void AI::crc( Xfer *xfer )
 		xfer->xferSnapshot( aiData );
 		aiData = aiData->m_next;
 	}
-	if (logDetail)
-	{
-		DEBUG_LOG(("AI::crc[%d] after TAiData: 0x%08X", frame, ((XferCRC *)xfer)->getCRC()));
-	}
 
-	Int groupCount = 0;
 	for (std::list<AIGroup *>::iterator groupIt = m_groupList.begin(); groupIt != m_groupList.end(); ++groupIt)
 	{
 		if (*groupIt)
@@ -1072,17 +1060,7 @@ void AI::crc( Xfer *xfer )
 			marker = "MARKER:AIGroup";
 			xfer->xferAsciiString(&marker);
 			xfer->xferSnapshot( (*groupIt) );
-			groupCount++;
-			if (logDetail)
-			{
-				DEBUG_LOG(("AI::crc[%d] after AIGroup %d (id=%u): 0x%08X",
-					frame, groupCount, (*groupIt)->getID(), ((XferCRC *)xfer)->getCRC()));
-			}
 		}
-	}
-	if (logDetail)
-	{
-		DEBUG_LOG(("AI::crc[%d] total groups: %d, final: 0x%08X", frame, groupCount, ((XferCRC *)xfer)->getCRC()));
 	}
 
 }

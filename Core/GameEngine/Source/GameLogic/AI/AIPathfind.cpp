@@ -1136,16 +1136,6 @@ void Pathfinder::cleanOpenAndClosedLists() {
 #endif
 
 	m_cumulativeCellsAllocated += count;
-#ifdef DEBUG_LOGGING
-	{
-		Int frame = TheGameLogic ? TheGameLogic->getFrame() : 0;
-		if (false && count > 0 && frame >= 2444 && frame <= 2448) // TheSuperHackers @debug disabled
-		{
-			DEBUG_LOG(("cleanOpenAndClosedLists[%d]: added %d cells, total now %d",
-				frame, count, m_cumulativeCellsAllocated));
-		}
-	}
-#endif
 }
 
 
