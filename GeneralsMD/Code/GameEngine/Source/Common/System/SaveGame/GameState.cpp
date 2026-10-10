@@ -53,6 +53,7 @@
 #include "GameClient/MapUtil.h"
 #include "GameClient/MessageBox.h"
 #include "GameClient/InGameUI.h"
+#include "GameNetwork/ResyncManager.h"
 #include "GameClient/ParticleSys.h"
 #include "GameClient/TerrainVisual.h"
 #include "GameClient/View.h"
@@ -814,7 +815,7 @@ SaveCode GameState::loadGameForResync( AsciiString filename )
 
 	if( error == TRUE )
 	{
-		DEBUG_LOG(("GameState::loadGameForResync - failed to load '%s'", filepath.str()));
+		ResyncLog("GameState::loadGameForResync - failed to load '%s'", filepath.str());
 		return SC_INVALID_DATA;
 	}
 

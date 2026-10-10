@@ -1963,6 +1963,7 @@ PlayerLeaveCode ConnectionManager::disconnectPlayer(Int slot) {
 }
 
 void ConnectionManager::quitGame() {
+	ResyncLog("ConnectionManager::quitGame - the local player leaves the game");
 	// Need to do the NetDisconnectPlayerCommandMsg creation and sending here.
 	NetDisconnectPlayerCommandMsg *disconnectMsg = newInstance(NetDisconnectPlayerCommandMsg);
 	disconnectMsg->setDisconnectSlot(m_localSlot);
@@ -2001,7 +2002,7 @@ void ConnectionManager::quitGame() {
 
 void ConnectionManager::disconnectLocalPlayer() {
 	// kill the frame data and the connections for all the other players.
-	DEBUG_LOG(("ConnectionManager::disconnectLocalPlayer()"));
+	ResyncLog("ConnectionManager::disconnectLocalPlayer - the local player is disconnected from the game");
 	for (Int i = 0; i < MAX_SLOTS; ++i) {
 		if (i != m_localSlot) {
 			disconnectPlayer(i);

@@ -18,8 +18,11 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include <stdarg.h>
+
 #include "Compression.h"
 #include "Common/file.h"
+#include "Common/GlobalData.h"
 #include "Common/LocalFileSystem.h"
 #include "GameClient/InGameUI.h"
 #include "GameLogic/GameLogic.h"
@@ -55,6 +58,64 @@ static const UnsignedInt RESYNC_MAX_PAYLOAD_SIZE = 64 * 1024 * 1024;
 
 static const char *RESYNC_SAVE_FILENAME = "ResyncState.sav";
 static const char *RESYNC_RECEIVED_FILENAME = "ResyncReceived.sav";
+
+// The log starts over once it gets this big.
+static const long RESYNC_LOG_MAX_SIZE = 1024 * 1024;
+
+void ResyncLog(const char *format, ...)
+{
+	char text[512];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(text, sizeof(text), format, args);
+	va_end(args);
+	text[sizeof(text) - 1] = 0;
+
+	DEBUG_LOG(("%s", text));
+
+	if (TheGlobalData == nullptr)
+	{
+		return;
+	}
+
+	AsciiString dir = TheGlobalData->getPath_UserData();
+	dir.concat("CRCMismatch");
+	CreateDirectory(dir.str(), nullptr);
+
+	AsciiString path;
+	path.format("%s\\ResyncLog.txt", dir.str());
+	FILE *fp = fopen(path.str(), "a");
+	if (fp == nullptr)
+	{
+		return;
+	}
+	fseek(fp, 0, SEEK_END);
+	if (ftell(fp) > RESYNC_LOG_MAX_SIZE)
+	{
+		fclose(fp);
+		fp = fopen(path.str(), "w");
+		if (fp == nullptr)
+		{
+			return;
+		}
+	}
+
+	SYSTEMTIME now;
+	GetLocalTime(&now);
+	fprintf(fp, "%04d-%02d-%02d %02d:%02d:%02d.%03d  frame %u  %s\n",
+		now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, now.wMilliseconds,
+		TheGameLogic ? TheGameLogic->getFrame() : 0, text);
+	fclose(fp);
+}
+
+static UnicodeString resyncFailedMessage(const char *reason)
+{
+	UnicodeString reasonText;
+	reasonText.translate(AsciiString(reason));
+	UnicodeString text;
+	text.format(L"Resync: failed (%ls)", reasonText.str());
+	return text;
+}
 
 ResyncManager::ResyncManager()
 {
@@ -94,12 +155,12 @@ void ResyncManager::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedBy
 {
 	if (m_state != RESYNCSTATE_NONE)
 	{
-		DEBUG_LOG(("ResyncManager::beginResync - resync for frame %d already in progress, ignoring frame %d", m_holdFrame, holdFrame));
+		ResyncLog("ResyncManager::beginResync - resync for frame %d already in progress, ignoring frame %d", m_holdFrame, holdFrame);
 		return;
 	}
 
-	DEBUG_LOG(("ResyncManager::beginResync - hold frame %d, donor %d, targets 0x%X, majority CRC %8.8X, resync %d",
-		holdFrame, donorSlot, targetMask, majorityCRC, m_resyncCount + 1));
+	ResyncLog("ResyncManager::beginResync - hold frame %d, donor %d, targets 0x%X, majority CRC %8.8X, resync %d",
+		holdFrame, donorSlot, targetMask, majorityCRC, m_resyncCount + 1);
 
 	++m_resyncCount;
 	if (m_resyncCount > RESYNC_MAX_PER_GAME)
@@ -179,7 +240,11 @@ void ResyncManager::update(ConnectionManager *conMgr)
 	if (now - m_lastProgressMessageTime > 5000)
 	{
 		m_lastProgressMessageTime = now;
-		if (!m_payload.empty())
+		if (!m_payload.empty() && m_sendOffset >= m_payload.size())
+		{
+			TheInGameUI->messageNoFormat(UnicodeString(L"Resync: game state sent, waiting for the player to load it..."));
+		}
+		else if (!m_payload.empty())
 		{
 			UnicodeString msg;
 			msg.format(L"Resync: sending game state %d%%", (Int)((UnsignedInt64)m_sendOffset * 100 / m_payload.size()));
@@ -210,6 +275,10 @@ void ResyncManager::startTransfer(ConnectionManager *conMgr)
 	m_transferStartTime = timeGetTime();
 	m_lastProgressMessageTime = m_transferStartTime;
 
+	ResyncLog("ResyncManager::startTransfer - local slot %d, donor %d, targets 0x%X, method %s, timeout %u ms",
+		(Int)conMgr->getLocalPlayerID(), m_donorSlot, m_targetMask,
+		m_method == RESYNCMETHOD_RESIMULATE ? "resimulate" : "state", getTimeout());
+
 	if (m_method == RESYNCMETHOD_RESIMULATE)
 	{
 		m_resimulatePending = isLocalTarget(conMgr);
@@ -232,7 +301,7 @@ void ResyncManager::startTransfer(ConnectionManager *conMgr)
 		return;
 	}
 
-	DEBUG_LOG(("ResyncManager::startTransfer - sending %d bytes of game state to 0x%X", (Int)m_payload.size(), m_targetMask));
+	ResyncLog("ResyncManager::startTransfer - sending %d bytes of game state to 0x%X", (Int)m_payload.size(), m_targetMask);
 }
 
 Bool ResyncManager::buildPayload()
@@ -267,7 +336,7 @@ Bool ResyncManager::buildPayload()
 	if (compressedLength > 0)
 	{
 		m_payload.assign(compressed.begin(), compressed.begin() + compressedLength);
-		DEBUG_LOG(("ResyncManager::buildPayload - compressed game state from %d to %d bytes", rawLength, compressedLength));
+		ResyncLog("ResyncManager::buildPayload - compressed game state from %d to %d bytes", rawLength, compressedLength);
 	}
 	else
 	{
@@ -323,6 +392,11 @@ void ResyncManager::sendNextChunks(ConnectionManager *conMgr)
 
 		m_sendOffset += length;
 	}
+
+	if (m_sendOffset >= m_payload.size())
+	{
+		ResyncLog("ResyncManager::sendNextChunks - all %u bytes queued for 0x%X", (UnsignedInt)m_payload.size(), m_targetMask);
+	}
 }
 
 void ResyncManager::prepareReceive(UnsignedInt holdFrame)
@@ -357,7 +431,7 @@ void ResyncManager::processResyncCommand(NetResyncCommandMsg *msg, ConnectionMan
 
 	if (msg->getResyncType() == NETRESYNCTYPE_DONE)
 	{
-		DEBUG_LOG(("ResyncManager::processResyncCommand - player %d finished resync for frame %d", sender, msg->getHoldFrame()));
+		ResyncLog("ResyncManager::processResyncCommand - player %d finished resync for frame %d", sender, msg->getHoldFrame());
 		m_rxDoneMask |= (1 << sender);
 		checkFinished();
 		return;
@@ -376,6 +450,8 @@ void ResyncManager::processResyncCommand(NetResyncCommandMsg *msg, ConnectionMan
 
 	if (m_rxPayload.empty())
 	{
+		ResyncLog("ResyncManager::processResyncCommand - receiving %u bytes of game state from player %u for frame %u",
+			totalLength, sender, msg->getHoldFrame());
 		m_rxPayload.resize(totalLength);
 		m_rxChunks.assign((totalLength + RESYNC_CHUNK_SIZE - 1) / RESYNC_CHUNK_SIZE, FALSE);
 		m_rxChunksReceived = 0;
@@ -386,7 +462,7 @@ void ResyncManager::processResyncCommand(NetResyncCommandMsg *msg, ConnectionMan
 	if (totalLength != m_rxPayload.size() || (offset % RESYNC_CHUNK_SIZE) != 0 || length == 0 ||
 		offset >= totalLength || length > totalLength - offset)
 	{
-		DEBUG_LOG(("ResyncManager::processResyncCommand - rejecting malformed chunk at offset %d", offset));
+		ResyncLog("ResyncManager::processResyncCommand - rejecting malformed chunk at offset %d", offset);
 		return;
 	}
 
@@ -431,7 +507,7 @@ void ResyncManager::finishReceive(ConnectionManager *conMgr)
 		state = m_rxPayload;
 	}
 
-	DEBUG_LOG(("ResyncManager::finishReceive - received %d bytes of game state for frame %d", (Int)state.size(), m_rxHoldFrame));
+	ResyncLog("ResyncManager::finishReceive - received %d bytes of game state for frame %d", (Int)state.size(), m_rxHoldFrame);
 
 #if RTS_ZEROHOUR
 	// The game state is loaded from the save directory, like a save game. updateLoad() loads it.
@@ -494,12 +570,13 @@ void ResyncManager::updateLoad(ConnectionManager *conMgr)
 	}
 
 #if RTS_ZEROHOUR
-	DEBUG_LOG(("ResyncManager::updateLoad - loading the game state for frame %d", m_holdFrame));
+	ResyncLog("ResyncManager::updateLoad - loading the game state for frame %d", m_holdFrame);
 	SaveCode result = TheGameState->loadGameForResync(RESYNC_RECEIVED_FILENAME);
+	ResyncLog("ResyncManager::updateLoad - load result %d, logic frame %u", (Int)result, TheGameLogic->getFrame());
 	if (result != SC_OK || TheGameLogic->getFrame() != m_holdFrame)
 	{
 		// The own game state is gone, but it can still be rebuilt from the recorded commands.
-		DEBUG_LOG(("ResyncManager::updateLoad - loading failed with %d on frame %d, resimulating instead", result, TheGameLogic->getFrame()));
+		ResyncLog("ResyncManager::updateLoad - loading failed with %d on frame %d, resimulating instead", result, TheGameLogic->getFrame());
 		if (!resimulate())
 		{
 			return;
@@ -553,6 +630,7 @@ UnsignedInt ResyncManager::getTimeout() const
 void ResyncManager::sendDone(ConnectionManager *conMgr)
 {
 	UnsignedByte relay = getConnectedMask(conMgr) & ~(1 << conMgr->getLocalPlayerID());
+	ResyncLog("ResyncManager::sendDone - frame %u, to 0x%X", m_rxHoldFrame, relay);
 	if (relay == 0)
 	{
 		return;
@@ -581,7 +659,7 @@ void ResyncManager::checkFinished()
 		return;
 	}
 
-	DEBUG_LOG(("ResyncManager::checkFinished - resync for frame %d complete", m_holdFrame));
+	ResyncLog("ResyncManager::checkFinished - resync for frame %d complete", m_holdFrame);
 	TheInGameUI->messageNoFormat(UnicodeString(L"Resync: complete, resuming game"));
 
 	m_state = RESYNCSTATE_NONE;
@@ -591,7 +669,7 @@ void ResyncManager::checkFinished()
 
 void ResyncManager::abortResync(const char *reason)
 {
-	DEBUG_LOG(("ResyncManager::abortResync - resync for frame %d failed: %s", m_holdFrame, reason));
+	ResyncLog("ResyncManager::abortResync - resync for frame %d failed: %s", m_holdFrame, reason);
 
 	m_state = RESYNCSTATE_NONE;
 	m_payload.clear();
@@ -599,7 +677,7 @@ void ResyncManager::abortResync(const char *reason)
 	prepareReceive(m_holdFrame);
 	m_rxComplete = TRUE;
 
-	TheInGameUI->messageNoFormat(UnicodeString(L"Resync: failed"));
+	TheInGameUI->messageNoFormat(resyncFailedMessage(reason));
 
 	// Fall back to the normal mismatch handling.
 	if (TheNetwork != nullptr)

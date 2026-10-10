@@ -37,6 +37,7 @@
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "GameNetwork/NetworkInterface.h"
+#include "GameNetwork/ResyncManager.h"
 #include "GameNetwork/udp.h"
 #include "GameNetwork/Transport.h"
 #include "WWLib/strtok_r.h"
@@ -408,6 +409,7 @@ void Network::rebaseFrames(UnsignedInt frame)
 
 void Network::setSawCRCMismatch()
 {
+	ResyncLog("Network::setSawCRCMismatch - the game ends with a CRC mismatch");
 	m_sawCRCMismatch = TRUE;
 
 	TheScriptActions->closeWindows( TRUE );
