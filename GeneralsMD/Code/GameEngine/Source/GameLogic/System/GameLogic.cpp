@@ -113,6 +113,7 @@
 #include "GameNetwork/GameSpy/PeerDefs.h"
 #include "GameNetwork/GameSpy/ThreadUtils.h"
 #include "GameNetwork/LANAPICallbacks.h"
+#include "GameNetwork/MPCheckpoint.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 
@@ -2705,6 +2706,10 @@ void GameLogic::processCommandList( CommandList *list )
 	// Resync fork: remember the commands, so the game can be resimulated
 	if (!m_isResimulating && TheNetwork && isInMultiplayerGame())
 	{
+		if (m_frame == 0)
+		{
+			MPCheckpoint::onGameStart();
+		}
 		TheLogicCommandHistory->recordFrame(m_frame, list);
 	}
 
@@ -2796,6 +2801,14 @@ void GameLogic::processCommandList( CommandList *list )
 		else
 		{
 			m_consecutiveCRCMismatches = 0;
+
+			// Resync fork: everyone agrees, so a checkpoint of the CRC frame is good.
+			Player *localPlayer = ThePlayerList->getLocalPlayer();
+			CachedCRCMap::const_iterator localCRC = localPlayer ? m_cachedCRCs.find(localPlayer->getPlayerIndex()) : m_cachedCRCs.end();
+			if (localCRC != m_cachedCRCs.end())
+			{
+				MPCheckpoint::noteCRCsAgreed(localCRC->second, TheGameInfo);
+			}
 		}
 
 		if (sawCRCMismatch)
@@ -2962,6 +2975,33 @@ void GameLogic::verifyResimulatedCRCs()
 		m_resimulationDiverged = TRUE;
 		return;
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Resync fork: when the host armed a resume in the game lobby, every player loads the same
+	* multiplayer checkpoint right after the map was loaded, and the game continues from there. */
+//-------------------------------------------------------------------------------------------------
+void GameLogic::resumeFromMPCheckpoint()
+{
+	if (m_isResimulating || TheNetwork == nullptr || !isInMultiplayerGame() || TheGameInfo == nullptr)
+	{
+		return;
+	}
+	if (!MPCheckpoint::takeResume(TheGameInfo))
+	{
+		return;
+	}
+
+	DEBUG_LOG(("GameLogic::resumeFromMPCheckpoint - loading %s", MPCheckpoint::getFileName()));
+	if (TheGameState->loadGameForResync(MPCheckpoint::getFileName()) != SC_OK)
+	{
+		TheInGameUI->messageNoFormat(UnicodeString(L"Resume: the checkpoint could not be loaded"));
+		TheNetwork->setSawCRCMismatch();
+		return;
+	}
+
+	TheNetwork->rebaseFrames(m_frame);
+	TheInGameUI->messageNoFormat(UnicodeString(L"Resume: the game continues from the checkpoint"));
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -4094,6 +4134,8 @@ void GameLogic::update()
 #endif
 		m_startNewGame = FALSE;
 
+		resumeFromMPCheckpoint();
+
 	#ifdef DUMP_PERF_STATS
 		char Buf[1024];
 		__int64 freq64;
@@ -4177,6 +4219,11 @@ void GameLogic::update()
 		{
 			m_CRC = getCRC( CRC_RECALC );
 			bool isPlayback = (TheRecorder && TheRecorder->isPlaybackMode());
+
+			if (generateForMP)
+			{
+				MPCheckpoint::notePendingCRC(m_frame, m_CRC);
+			}
 
 			// Resync fork: -resyncTest makes this client report wrong CRCs for a while, so the
 			// others see it in the minority and resync it.
@@ -4368,6 +4415,14 @@ void GameLogic::update()
 	{
 		m_frame++;
 		m_hasUpdated = TRUE;
+	}
+
+	// Resync fork: every client saves a multiplayer checkpoint on the same frames. The state is the
+	// one the CRC of this frame is calculated from at the start of the next update.
+	if (!m_isResimulating && TheNetwork && isInMultiplayerGame() && TheGameInfo && m_frame > 0 &&
+		(m_frame % MPCheckpoint::getInterval(TheGameInfo->getCRCInterval())) == 0)
+	{
+		MPCheckpoint::savePending(m_frame);
 	}
 
 	// TheSuperHackers @fix bobtista 25/01/2026 Save checkpoint right after frame increment.

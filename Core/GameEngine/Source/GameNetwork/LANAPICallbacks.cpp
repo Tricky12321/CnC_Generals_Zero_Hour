@@ -45,6 +45,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameNetwork/FileTransfer.h"
 #include "GameNetwork/LANAPICallbacks.h"
+#include "GameNetwork/MPCheckpoint.h"
 #include "GameNetwork/networkutil.h"
 
 LANAPI *TheLAN = nullptr;
@@ -677,6 +678,12 @@ void LANAPI::OnInActive(UnsignedInt IP) {
 
 void LANAPI::OnChat( UnicodeString player, UnsignedInt ip, UnicodeString message, ChatType format )
 {
+	// Resync fork: the host can resume the last game from a checkpoint with "/resume" in the game lobby
+	if (format == LANAPIInterface::LANCHAT_NORMAL && !m_inLobby && m_currentGame && !m_currentGame->isGameInProgress())
+	{
+		MPCheckpoint::onLobbyChat(ip, message, ip == m_currentGame->getIP(0), m_currentGame->amIHost());
+	}
+
 	GameWindow *chatWindow = nullptr;
 
 	if (m_inLobby)

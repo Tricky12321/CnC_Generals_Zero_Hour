@@ -472,6 +472,14 @@ void ConnectionManager::attachTransport(Transport *transport) {
  * zero out the command counts for the given frames.  Presently this is used for
  * the start of a game since there won't be any commands for the first few frames due to runahead.
  */
+void ConnectionManager::resetFrameData() {
+	for (Int i = 0; i < MAX_SLOTS; ++i) {
+		if (m_frameData[i] != nullptr) {
+			m_frameData[i]->reset();
+		}
+	}
+}
+
 void ConnectionManager::zeroFrames(UnsignedInt startingFrame, UnsignedInt numFrames) {
 	for (Int i = 0; i < MAX_SLOTS; ++i) {
 		if (m_frameData[i] != nullptr) {

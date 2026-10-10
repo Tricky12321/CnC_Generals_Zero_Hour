@@ -218,6 +218,11 @@ void ResyncManager::startTransfer(ConnectionManager *conMgr)
 
 	if ((Int)conMgr->getLocalPlayerID() != m_donorSlot)
 	{
+#if RTS_ZEROHOUR
+		// Every client saves, in case saving touches the game state, so the majority stays in sync
+		// with the donor.
+		TheGameState->saveGame(RESYNC_SAVE_FILENAME, UnicodeString(L"Resync"), SAVE_FILE_TYPE_NORMAL);
+#endif
 		return;
 	}
 

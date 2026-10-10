@@ -107,6 +107,7 @@ public:
 	virtual void setSawCRCMismatch() = 0;
 	virtual void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC) = 0;	///< Resync fork: transfer the majority game state to the target slots
 	virtual Bool isResyncInProgress() = 0;
+	virtual void rebaseFrames(UnsignedInt frame) = 0;				///< Resync fork: the game was resumed from a checkpoint and continues after this frame
 
 	virtual Bool isPlayerConnected(Int playerID) = 0;
 

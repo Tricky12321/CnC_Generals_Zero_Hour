@@ -74,6 +74,7 @@ public:
 //	void AddConnection(User *user, UnsignedInt slot);
 	void determineRouterFallbackPlan();
 	void zeroFrames(UnsignedInt startingFrame, UnsignedInt numFrames);
+	void resetFrameData();																			///< Resync fork: forget the frame data of all players
 	void destroyGameMessages();
 //	void createConnections(UnsignedInt numberOfPlayers, UnsignedInt localSlot);
 	void setLocalAddress(UnsignedInt ip, UnsignedInt port);

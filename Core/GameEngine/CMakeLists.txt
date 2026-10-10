@@ -517,6 +517,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/Connection.h
     Include/GameNetwork/ConnectionManager.h
     Include/GameNetwork/DisconnectManager.h
+    Include/GameNetwork/MPCheckpoint.h
     Include/GameNetwork/ResyncManager.h
     Include/GameNetwork/DownloadManager.h
     Include/GameNetwork/FileTransfer.h
@@ -1115,6 +1116,7 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/Connection.cpp
     Source/GameNetwork/ConnectionManager.cpp
     Source/GameNetwork/DisconnectManager.cpp
+    Source/GameNetwork/MPCheckpoint.cpp
     Source/GameNetwork/ResyncManager.cpp
     Source/GameNetwork/DownloadManager.cpp
     Source/GameNetwork/FileTransfer.cpp
