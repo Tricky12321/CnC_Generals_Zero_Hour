@@ -73,6 +73,7 @@ public:
 
 	virtual void sendFile(AsciiString path, UnsignedByte playerMask, UnsignedShort commandID) = 0;
 	virtual UnsignedShort sendFileAnnounce(AsciiString path, UnsignedByte playerMask) = 0;
+	virtual void sendDiagnosticsFileToHost(AsciiString fileName) = 0;		///< Resync fork: send a file from the CRCMismatch directory to the host
 	virtual Int getFileTransferProgress(Int playerID, AsciiString path) = 0;
 	virtual Bool areAllQueuesEmpty() = 0;
 

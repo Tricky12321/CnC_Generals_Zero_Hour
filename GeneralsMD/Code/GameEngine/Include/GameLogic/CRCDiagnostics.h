@@ -60,7 +60,8 @@ public:
 	void endFrame(UnsignedInt crc);
 
 	/// Write a mismatch report. localCRC is the CRC this client sent, it identifies the recorded frame.
-	void writeMismatchReport(UnsignedInt detectFrame, UnsignedInt localCRC, const std::map<Int, UnsignedInt> &playerCRCs,
+	/// Returns the file name of the report in the CRCMismatch directory, empty if none was written.
+	AsciiString writeMismatchReport(UnsignedInt detectFrame, UnsignedInt localCRC, const std::map<Int, UnsignedInt> &playerCRCs,
 		UnsignedInt consecutiveMismatches, UnsignedInt tolerance);
 
 	// FPU monitoring

@@ -126,6 +126,7 @@ public:
 
 	virtual void sendFile(AsciiString path, UnsignedByte playerMask, UnsignedShort commandID) override;
 	virtual UnsignedShort sendFileAnnounce(AsciiString path, UnsignedByte playerMask) override;
+	virtual void sendDiagnosticsFileToHost(AsciiString fileName) override;
 	virtual Int getFileTransferProgress(Int playerID, AsciiString path) override;
 	virtual Bool areAllQueuesEmpty() override;
 
@@ -410,6 +411,12 @@ void Network::rebaseFrames(UnsignedInt frame)
 void Network::setSawCRCMismatch()
 {
 	ResyncLog("Network::setSawCRCMismatch - the game ends with a CRC mismatch");
+	if (!m_sawCRCMismatch && m_conMgr != nullptr)
+	{
+		// The host collects the diagnostics of every player.
+		m_conMgr->sendDiagnosticsFileToHost("ResyncLog.txt");
+		m_conMgr->sendDiagnosticsFileToHost("FPUChanges.txt");
+	}
 	m_sawCRCMismatch = TRUE;
 
 	TheScriptActions->closeWindows( TRUE );
@@ -982,6 +989,14 @@ void Network::sendFile(AsciiString path, UnsignedByte playerMask, UnsignedShort 
 UnsignedShort Network::sendFileAnnounce(AsciiString path, UnsignedByte playerMask)
 {
 	return m_conMgr->sendFileAnnounce(path, playerMask);
+}
+
+void Network::sendDiagnosticsFileToHost(AsciiString fileName)
+{
+	if (m_conMgr != nullptr)
+	{
+		m_conMgr->sendDiagnosticsFileToHost(fileName);
+	}
 }
 
 Int Network::getFileTransferProgress(Int playerID, AsciiString path)

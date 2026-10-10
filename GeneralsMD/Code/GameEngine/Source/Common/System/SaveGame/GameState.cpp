@@ -993,6 +993,9 @@ static AsciiString getMapLeafAndDirName(const AsciiString& in)
 const char* PORTABLE_SAVE				= "Save\\";
 const char* PORTABLE_MAPS				= "Maps\\";
 const char* PORTABLE_USER_MAPS	= "UserData\\Maps\\";
+// Resync fork: diagnostics files that a player sends to the host after a desync,
+// "Diag\<sender>\<file>" -> "<user data>\CRCMismatch\From\<sender>\<file>"
+const char* PORTABLE_DIAGNOSTICS	= "Diag\\";
 
 // ------------------------------------------------------------------------------------------------
 AsciiString GameState::realMapPathToPortableMapPath(const AsciiString& in) const
@@ -1050,6 +1053,13 @@ AsciiString GameState::portableMapPathToRealMapPath(const AsciiString& in) const
 		// the map dir DOES NOT end with "\\", must add it
 		prefix = TheMapCache->getUserMapDir();
 		prefix.concat("\\");
+		containingBasePath = prefix;
+		prefix.concat(getMapLeafAndDirName(in));
+	}
+	else if (in.startsWithNoCase(PORTABLE_DIAGNOSTICS))
+	{
+		prefix = TheGlobalData->getPath_UserData();
+		prefix.concat("CRCMismatch\\From\\");
 		containingBasePath = prefix;
 		prefix.concat(getMapLeafAndDirName(in));
 	}
