@@ -1096,23 +1096,15 @@ void AI::xfer( Xfer *xfer )
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
-	// TheSuperHackers @debug bobtista 23/01/2026 Log partial CRCs during AI xfer
-	Bool logPartialCRC = (xfer->getXferMode() == XFER_CRC && TheGameLogic && TheGameLogic->getFrame() >= 4 && TheGameLogic->getFrame() <= 6);
-	XferCRC *xferCRC = logPartialCRC ? static_cast<XferCRC *>(xfer) : nullptr;
-
 	// TheSuperHackers @info bobtista 20/01/2026 Serialize AI state that is included in CRC.
 	if ( version >= 2 )
 	{
 		xfer->xferSnapshot( m_pathfinder );
-		if (logPartialCRC)
-			DEBUG_LOG(("AI::xfer[%d] after pathfinder: 0x%08X", TheGameLogic->getFrame(), xferCRC->getCRC()));
 
 		// TheSuperHackers @info bobtista 20/01/2026 Serialize the next group ID counter
 		if ( version >= 3 )
 		{
 			xfer->xferUnsignedInt( &m_nextGroupID );
-			if (logPartialCRC)
-				DEBUG_LOG(("AI::xfer[%d] after m_nextGroupID (%u): 0x%08X", TheGameLogic->getFrame(), m_nextGroupID, xferCRC->getCRC()));
 		}
 
 		// Serialize TAiData chain (same as crc())
@@ -1122,14 +1114,10 @@ void AI::xfer( Xfer *xfer )
 			xfer->xferSnapshot( aiData );
 			aiData = aiData->m_next;
 		}
-		if (logPartialCRC)
-			DEBUG_LOG(("AI::xfer[%d] after TAiData chain: 0x%08X", TheGameLogic->getFrame(), xferCRC->getCRC()));
 
 		// Serialize AIGroup count and each group
 		Int groupCount = (Int)m_groupList.size();
 		xfer->xferInt( &groupCount );
-		if (logPartialCRC)
-			DEBUG_LOG(("AI::xfer[%d] after groupCount (%d): 0x%08X", TheGameLogic->getFrame(), groupCount, xferCRC->getCRC()));
 
 		if ( xfer->getXferMode() == XFER_SAVE )
 		{

@@ -1902,6 +1902,7 @@ void RecorderClass::xfer( Xfer *xfer )
 		m_currentFilePosition = m_file->position();
 		DEBUG_LOG(("RecorderClass::xfer SAVE - m_nextFrame=%u, m_currentFilePosition=%d, m_file->position()=%d, game_frame=%d",
 			m_nextFrame, m_currentFilePosition, m_file->position(), TheGameLogic ? TheGameLogic->getFrame() : -1));
+#ifdef DEBUG_LOGGING
 		// Log the next few bytes at the current file position for debugging
 		if (m_file != nullptr)
 		{
@@ -1920,6 +1921,7 @@ void RecorderClass::xfer( Xfer *xfer )
 				bytesRead > 12 ? debugBytes[12] : 0, bytesRead > 13 ? debugBytes[13] : 0,
 				bytesRead > 14 ? debugBytes[14] : 0, bytesRead > 15 ? debugBytes[15] : 0));
 		}
+#endif
 	}
 	xfer->xferInt( &m_currentFilePosition );
 	xfer->xferUnsignedInt( &m_nextFrame );
@@ -2259,6 +2261,7 @@ void RecorderClass::loadPostProcess( void )
 
 	DEBUG_LOG(("RecorderClass::loadPostProcess - Resumed replay at file position %d, next frame %d, actual file pos %d",
 		m_currentFilePosition, m_nextFrame, m_file ? m_file->position() : -1));
+#ifdef DEBUG_LOGGING
 	// Log the next few bytes at the current file position for debugging
 	if (m_file != nullptr)
 	{
@@ -2277,6 +2280,7 @@ void RecorderClass::loadPostProcess( void )
 			bytesRead > 12 ? debugBytes[12] : 0, bytesRead > 13 ? debugBytes[13] : 0,
 			bytesRead > 14 ? debugBytes[14] : 0, bytesRead > 15 ? debugBytes[15] : 0));
 	}
+#endif
 }
 
 Bool RecorderClass::reopenReplayFileAtPosition( Int position )
