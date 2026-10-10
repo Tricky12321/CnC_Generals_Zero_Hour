@@ -567,7 +567,8 @@ void DockUpdate::xfer( Xfer *xfer )
 {
 
 	// version
-	XferVersion currentVersion = 1;
+	// TheSuperHackers @fix bobtista 30/01/2026 Added m_numberApproachPositionBones serialization in v2
+	XferVersion currentVersion = 2;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -588,6 +589,14 @@ void DockUpdate::xfer( Xfer *xfer )
 
 	// positions loaded
 	xfer->xferBool( &m_positionsLoaded );
+
+	// TheSuperHackers @fix bobtista 30/01/2026 Serialize m_numberApproachPositionBones to ensure
+	// consistent approach position calculation after checkpoint load. Without this, the bias towards
+	// caller position code path would differ between fresh and checkpoint runs.
+	if (version >= 2)
+	{
+		xfer->xferInt( &m_numberApproachPositionBones );
+	}
 
 	// approach positions
 	Int vectorSize = m_approachPositions.size();

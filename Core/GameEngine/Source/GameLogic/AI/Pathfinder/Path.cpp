@@ -68,7 +68,7 @@ void Path::crc( Xfer *xfer )
 void Path::xfer( Xfer *xfer )
 {
   // version
-  XferVersion currentVersion = 1;
+  XferVersion currentVersion = 2;
   XferVersion version = currentVersion;
   xfer->xferVersion( &version, currentVersion );
 
@@ -101,7 +101,11 @@ void Path::xfer( Xfer *xfer )
 		}
 		DEBUG_ASSERTCRASH(count==0, ("Wrong data count"));
 	} else {
-		m_cpopValid = FALSE;
+		// TheSuperHackers @info bobtista 20/01/2026 Cache invalidation moved to version < 2
+		if ( version < 2 )
+		{
+			m_cpopValid = FALSE;
+		}
 		while (count) {
 			Int nodeId;
 			xfer->xferInt(&nodeId);
@@ -143,6 +147,43 @@ void Path::xfer( Xfer *xfer )
 	UnsignedInt obsolete2;
 	xfer->xferUnsignedInt(&obsolete2);
 	xfer->xferBool(&m_blockedByAlly);
+
+	// TheSuperHackers @fix bobtista 20/01/2026
+	// Serialize path cache state to ensure consistent behavior after checkpoint load.
+	// Without this, path computation may iterate differently causing CRC divergence.
+	if ( version >= 2 )
+	{
+		xfer->xferBool(&m_cpopValid);
+		xfer->xferInt(&m_cpopCountdown);
+		xfer->xferCoord3D(&m_cpopIn);
+		xfer->xferReal(&m_cpopOut.distAlongPath);
+		xfer->xferCoord3D(&m_cpopOut.posOnPath);
+		xfer->xferUser(&m_cpopOut.layer, sizeof(m_cpopOut.layer));
+
+		// Save/restore m_cpopRecentStart as node ID
+		Int recentStartId = -1;
+		if ( xfer->getXferMode() == XFER_SAVE )
+		{
+			if ( m_cpopRecentStart )
+			{
+				recentStartId = m_cpopRecentStart->m_id;
+			}
+		}
+		xfer->xferInt(&recentStartId);
+		if ( xfer->getXferMode() == XFER_LOAD )
+		{
+			m_cpopRecentStart = nullptr;
+			if ( recentStartId > 0 )
+			{
+				PathNode *searchNode = m_path;
+				while ( searchNode && searchNode->m_id != recentStartId )
+				{
+					searchNode = searchNode->getNext();
+				}
+				m_cpopRecentStart = searchNode;
+			}
+		}
+	}
 
 
 #if defined(RTS_DEBUG)
@@ -565,7 +606,6 @@ void Path::computePointOnPath(
 	{
 		out = m_cpopOut;
 		m_cpopCountdown--;
-		CRCDEBUG_LOG(("Path::computePointOnPath() end because we're really close"));
 		return;
 	}
 	m_cpopCountdown = MAX_CPOP;

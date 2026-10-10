@@ -61,16 +61,37 @@ void ZoneBlock::blockCalculateZones(PathfindCell **map, PathfindLayer layers[], 
 {
 	Int i, j;
 	m_cellOrigin = bounds.lo;
-	UnsignedInt minZone = map[bounds.lo.x][bounds.lo.y].getZone();
-	UnsignedInt maxZone = minZone;
+
+	// TheSuperHackers @fix bobtista 21/01/2026
+	// During checkpoint load, some cells may have zone 0 (UNINITIALIZED_ZONE) which is
+	// valid for cells under objects. We skip zone-0 cells when calculating min/max zones
+	// to avoid including them in the zone range. This allows blockCalculateZones() to work
+	// correctly after checkpoint loading where serialized zones include zone-0 cells.
+	UnsignedInt minZone = 0;
+	UnsignedInt maxZone = 0;
+	Bool foundValidZone = FALSE;
 
 	for( j=bounds.lo.y; j<=bounds.hi.y; j++ )	{
 		for( i=bounds.lo.x; i<=bounds.hi.x; i++ )	{
 			PathfindCell *cell = &map[i][j];
 			zoneStorageType zone = cell->getZone();
-			if (minZone>zone) minZone=zone;
-			if (maxZone<zone) maxZone=zone;
+			// Skip zone 0 (cells under objects or uninitialized cells)
+			if (zone == 0) continue;
+			if (!foundValidZone) {
+				minZone = zone;
+				maxZone = zone;
+				foundValidZone = TRUE;
+			} else {
+				if (minZone>zone) minZone=zone;
+				if (maxZone<zone) maxZone=zone;
+			}
 		}
+	}
+
+	// If no valid zones found, treat block as single zone
+	if (!foundValidZone) {
+		minZone = 1;
+		maxZone = 1;
 	}
 	m_firstZone = minZone;
 	m_numZones = 1 + maxZone - minZone;
@@ -89,36 +110,46 @@ void ZoneBlock::blockCalculateZones(PathfindCell **map, PathfindLayer layers[], 
 
 	for( j=bounds.lo.y; j<=bounds.hi.y; j++ )	{
 		for( i=bounds.lo.x; i<=bounds.hi.x; i++ )	{
-			if (i>bounds.lo.x && map[i][j].getZone()!=map[i-1][j].getZone()) {
+			// TheSuperHackers @fix bobtista 21/01/2026
+			// Skip zone-0 cells (cells under objects or uninitialized) when building zone equivalencies.
+			// These cells are not pathable anyway, so they don't need to be included in zone connectivity.
+			zoneStorageType thisZone = map[i][j].getZone();
+			if (thisZone == 0) continue;
 
-				if (PathfindCell::waterGround(map[i][j], map[i-1][j])) {
-					applyBlockZone(map[i][j], map[i-1][j], m_groundWaterZones, m_firstZone, m_numZones);
-				}
-				if (PathfindCell::groundRubble(map[i][j], map[i-1][j])) {
-					applyBlockZone(map[i][j], map[i-1][j], m_groundRubbleZones, m_firstZone, m_numZones);
-				}
-				if (PathfindCell::groundCliff(map[i][j], map[i-1][j])) {
-					applyBlockZone(map[i][j], map[i-1][j], m_groundCliffZones, m_firstZone, m_numZones);
-				}
-				if (PathfindCell::crusherGround(map[i][j], map[i-1][j])) {
-					applyBlockZone(map[i][j], map[i-1][j], m_crusherZones, m_firstZone, m_numZones);
-				}
-			}
-			if (j>bounds.lo.y && map[i][j].getZone()!=map[i][j-1].getZone()) {
-				if (PathfindCell::waterGround(map[i][j],map[i][j-1])) {
-					applyBlockZone(map[i][j], map[i][j-1], m_groundWaterZones, m_firstZone, m_numZones);
-				}
-				if (PathfindCell::groundRubble(map[i][j], map[i][j-1])) {
-					applyBlockZone(map[i][j], map[i][j-1], m_groundRubbleZones, m_firstZone, m_numZones);
-				}
-				if (PathfindCell::groundCliff(map[i][j],map[i][j-1])) {
-					applyBlockZone(map[i][j], map[i][j-1], m_groundCliffZones, m_firstZone, m_numZones);
-				}
-				if (PathfindCell::crusherGround(map[i][j], map[i][j-1])) {
-					applyBlockZone(map[i][j], map[i][j-1], m_crusherZones, m_firstZone, m_numZones);
+			if (i>bounds.lo.x) {
+				zoneStorageType leftZone = map[i-1][j].getZone();
+				if (leftZone != 0 && thisZone != leftZone) {
+					if (PathfindCell::waterGround(map[i][j], map[i-1][j])) {
+						applyBlockZone(map[i][j], map[i-1][j], m_groundWaterZones, m_firstZone, m_numZones);
+					}
+					if (PathfindCell::groundRubble(map[i][j], map[i-1][j])) {
+						applyBlockZone(map[i][j], map[i-1][j], m_groundRubbleZones, m_firstZone, m_numZones);
+					}
+					if (PathfindCell::groundCliff(map[i][j], map[i-1][j])) {
+						applyBlockZone(map[i][j], map[i-1][j], m_groundCliffZones, m_firstZone, m_numZones);
+					}
+					if (PathfindCell::crusherGround(map[i][j], map[i-1][j])) {
+						applyBlockZone(map[i][j], map[i-1][j], m_crusherZones, m_firstZone, m_numZones);
+					}
 				}
 			}
-			DEBUG_ASSERTCRASH(map[i][j].getZone() != 0, ("Cleared the zone."));
+			if (j>bounds.lo.y) {
+				zoneStorageType topZone = map[i][j-1].getZone();
+				if (topZone != 0 && thisZone != topZone) {
+					if (PathfindCell::waterGround(map[i][j],map[i][j-1])) {
+						applyBlockZone(map[i][j], map[i][j-1], m_groundWaterZones, m_firstZone, m_numZones);
+					}
+					if (PathfindCell::groundRubble(map[i][j], map[i][j-1])) {
+						applyBlockZone(map[i][j], map[i][j-1], m_groundRubbleZones, m_firstZone, m_numZones);
+					}
+					if (PathfindCell::groundCliff(map[i][j],map[i][j-1])) {
+						applyBlockZone(map[i][j], map[i][j-1], m_groundCliffZones, m_firstZone, m_numZones);
+					}
+					if (PathfindCell::crusherGround(map[i][j], map[i][j-1])) {
+						applyBlockZone(map[i][j], map[i][j-1], m_crusherZones, m_firstZone, m_numZones);
+					}
+				}
+			}
 		}
 	}
 

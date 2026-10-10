@@ -71,6 +71,33 @@ void PathfindCell::reset()
 }
 
 /**
+ * Reset cell type and obstacle info for checkpoint load.
+ * Preserves m_flags (unit tracking), m_zone (serialized), and m_aircraftGoal (serialized).
+ * TheSuperHackers @bobtista 28/01/2026
+ */
+void PathfindCell::resetForCheckpointLoad( void )
+{
+	// Clear obstacle info, but preserve unit position/goal info and aircraft goals
+	// which were serialized and loaded in Pathfinder::xfer().
+	if (m_info) {
+		m_info->m_obstacleID = INVALID_ID;
+		m_info->m_obstacleIsFence = false;
+		m_info->m_obstacleIsTransparent = false;
+		// Only release m_info if there's no unit data or aircraft goal to preserve
+		if (m_info->m_posUnitID == INVALID_ID && m_info->m_goalUnitID == INVALID_ID &&
+			m_info->m_goalAircraftID == INVALID_ID) {
+			PathfindCellInfo::releaseACellInfo(m_info);
+			m_info = nullptr;
+		}
+	}
+	// Now safe to set type to CELL_CLEAR
+	m_type = PathfindCell::CELL_CLEAR;
+	m_pinched = false;
+	// Note: m_flags, m_zone, and m_aircraftGoal are intentionally NOT cleared
+	// as they were serialized and loaded in Pathfinder::xfer()
+}
+
+/**
  * Reset the pathfinding values in the cell.
  */
 Bool PathfindCell::startPathfind( PathfindCell *goalCell  )

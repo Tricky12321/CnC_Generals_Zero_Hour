@@ -53,4 +53,10 @@ struct ClientRandomValueClass final : RandomValueClass
 #define RandomValueInt(randomValueClass, lo, hi) randomValueClass.GetRandomValueInt( lo, hi, __FILE__, __LINE__ )
 #define RandomValueReal(randomValueClass, lo, hi) randomValueClass.GetRandomValueReal( lo, hi, __FILE__, __LINE__ )
 
+// TheSuperHackers @info bobtista 19/01/2026
+// Functions to save/restore the full RNG state for checkpoints.
+// The state array must have room for 6 UnsignedInts.
+extern void GetGameLogicRandomState( UnsignedInt* state, UnsignedInt* baseSeed );
+extern void SetGameLogicRandomState( const UnsignedInt* state, UnsignedInt baseSeed );
+
 //--------------------------------------------------------------------------------------------------------------

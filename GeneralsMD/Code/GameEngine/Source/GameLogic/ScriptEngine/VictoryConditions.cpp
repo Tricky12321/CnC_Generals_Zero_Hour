@@ -39,6 +39,7 @@
 #include "Common/PlayerTemplate.h"
 #include "Common/Radar.h"
 #include "Common/Recorder.h"
+#include "Common/Xfer.h"
 
 #include "GameClient/InGameUI.h"
 #include "GameClient/Diplomacy.h"
@@ -92,6 +93,11 @@ public:
 	virtual Bool isLocalDefeat() override;												///< convenience function
 	virtual Bool amIObserver() override { return m_isObserver;} 	///< Am I an observer?( need this for scripts )
 	virtual UnsignedInt getEndFrame() override { return m_endFrame; }	///< on which frame was the game effectively over?
+
+	// Snapshot interface
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess( void ) override;
 private:
 	Player* findFirstUndefeatedPlayer(); ///< Find the first player that has not been defeated.
 	void markAllianceVictorious(Player* victoriousPlayer); ///< Mark the victorious player and his allies as victorious.
@@ -415,5 +421,33 @@ Bool VictoryConditions::isLocalDefeat()
 	return (m_localPlayerDefeated);
 }
 
+//-------------------------------------------------------------------------------------------------
+// TheSuperHackers @bugfix bobtista 02/02/2026 Serialize VictoryConditions state to prevent
+// re-triggering defeat events after checkpoint load.
+//-------------------------------------------------------------------------------------------------
+void VictoryConditions::crc( Xfer *xfer )
+{
+	// VictoryConditions state doesn't affect gameplay CRC
+}
 
+//-------------------------------------------------------------------------------------------------
+void VictoryConditions::xfer( Xfer *xfer )
+{
+	XferVersion currentVersion = 1;
+	XferVersion version = currentVersion;
+	xfer->xferVersion( &version, currentVersion );
 
+	// Serialize the defeated state for each player
+	xfer->xferUser( m_isDefeated, sizeof(Bool) * MAX_PLAYER_COUNT );
+
+	// Serialize other state that needs to persist
+	xfer->xferBool( &m_localPlayerDefeated );
+	xfer->xferBool( &m_singleAllianceRemaining );
+	xfer->xferUnsignedInt( &m_endFrame );
+}
+
+//-------------------------------------------------------------------------------------------------
+void VictoryConditions::loadPostProcess( void )
+{
+	// Nothing needed - player pointers are re-cached by cachePlayerPtrs() after load
+}
