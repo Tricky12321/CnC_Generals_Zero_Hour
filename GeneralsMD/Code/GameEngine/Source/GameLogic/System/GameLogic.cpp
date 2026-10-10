@@ -278,7 +278,7 @@ GameLogic::GameLogic()
 	// TheSuperHackers @info bobtista 19/01/2026 Initialize RNG restore state
 	m_pendingRngRestore = FALSE;
 	m_pendingRngBaseSeed = 0;
-	for (Int i = 0; i < 6; ++i)
+	for (i = 0; i < 6; ++i)
 	{
 		m_pendingRngState[i] = 0;
 	}

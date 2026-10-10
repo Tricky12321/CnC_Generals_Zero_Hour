@@ -11448,6 +11448,8 @@ void Pathfinder::crc( Xfer *xfer )
 //-----------------------------------------------------------------------------
 void Pathfinder::xfer( Xfer *xfer )
 {
+	Int i;
+
 	// TheSuperHackers @info bobtista 21/01/2026
 	// Version 2 serializes all pathfinder state needed for checkpoint CRC matching:
 	// - Queue state (used in CRC calculation)
@@ -11462,7 +11464,7 @@ void Pathfinder::xfer( Xfer *xfer )
 	// Serialize pathfinder queue state (included in CRC calculation)
 	xfer->xferInt( &m_queuePRHead );
 	xfer->xferInt( &m_queuePRTail );
-	for ( Int i = 0; i < PATHFIND_QUEUE_LEN; ++i )
+	for ( i = 0; i < PATHFIND_QUEUE_LEN; ++i )
 	{
 		xfer->xferObjectID( &m_queuedPathfindRequests[i] );
 	}
@@ -11473,7 +11475,7 @@ void Pathfinder::xfer( Xfer *xfer )
 	xfer->xferBool( &m_isTunneling );
 	xfer->xferUser( &m_ignoreObstacleID, sizeof(ObjectID) );
 	xfer->xferInt( &m_numWallPieces );
-	for ( Int i = 0; i < MAX_WALL_PIECES; ++i )
+	for ( i = 0; i < MAX_WALL_PIECES; ++i )
 	{
 		xfer->xferObjectID( &m_wallPieces[i] );
 	}
@@ -11519,7 +11521,7 @@ void Pathfinder::xfer( Xfer *xfer )
 	}
 
 	// Serialize layer destroyed state (bridges can be destroyed during gameplay)
-	for ( Int i = 0; i <= LAYER_LAST; ++i )
+	for ( i = 0; i <= LAYER_LAST; ++i )
 	{
 		xfer->xferBool( &m_layers[i].m_destroyed );
 	}
