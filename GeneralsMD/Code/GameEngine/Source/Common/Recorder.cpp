@@ -987,10 +987,7 @@ Bool RecorderClass::initializeReplayForCheckpointLoad(const AsciiString &replayF
 	m_mode = RECORDERMODETYPE_SIMULATION_PLAYBACK;
 
 	ReplayHeader header;
-	header.forPlayback = TRUE;
-	header.filename = replayFilename;
-
-	Bool success = readReplayHeader(header);
+	Bool success = readReplayHeader(header, replayFilename, TRUE);
 	if (!success)
 	{
 		m_checkpointLoadInProgress = FALSE;
@@ -1933,7 +1930,9 @@ void RecorderClass::xfer( Xfer *xfer )
 			m_nextFrame, m_currentFilePosition));
 	}
 	xfer->xferUnsignedInt( &m_playbackFrameCount );
-	xfer->xferInt( &m_originalGameMode );
+	Int originalGameMode = m_originalGameMode;
+	xfer->xferInt( &originalGameMode );
+	m_originalGameMode = (GameMode)originalGameMode;
 	xfer->xferBool( &m_doingAnalysis );
 	xfer->xferBool( &m_wasDesync );
 
