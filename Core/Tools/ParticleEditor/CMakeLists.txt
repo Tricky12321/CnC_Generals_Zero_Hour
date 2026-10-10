@@ -46,7 +46,7 @@ target_link_libraries(core_particleeditor PRIVATE
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
     target_link_options(core_particleeditor PRIVATE /NODEFAULTLIB:libci.lib /NODEFAULTLIB:libc.lib)
-    target_compile_definitions(core_particleeditor PRIVATE _AFXDLL)
+    rts_use_mfc_dll(core_particleeditor)
     target_sources(core_particleeditor PRIVATE ParticleEditor.rc)
     set_target_properties(core_particleeditor PROPERTIES OUTPUT_NAME "ParticleEditor${RTS_BUILD_OUTPUT_SUFFIX}")
 else()

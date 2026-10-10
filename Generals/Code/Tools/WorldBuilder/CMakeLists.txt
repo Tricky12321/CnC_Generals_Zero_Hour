@@ -200,7 +200,7 @@ target_include_directories(g_worldbuilder PRIVATE
     res
 )
 
-target_compile_definitions(g_worldbuilder PRIVATE _AFXDLL)
+rts_use_mfc_dll(g_worldbuilder)
 
 target_precompile_headers(g_worldbuilder PRIVATE
     [["Precompiled/BasePrecomp.h"]] # Must be first

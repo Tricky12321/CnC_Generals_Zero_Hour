@@ -63,3 +63,18 @@ macro(collect_defines_from_file OutputVariableName InputFile DefinePrefix)
     unset(_matching_line)
     unset(_define_name)
 endmacro()
+
+# Resync fork: the VC6 build links the C runtime statically, so Wine and Windows run the same CRT
+# code. MFC as a DLL (_AFXDLL) requires the DLL runtime, so the MFC tools use it and ignore the
+# static runtime libraries that the shared static libraries ask for.
+function(rts_use_mfc_dll target)
+    target_compile_definitions(${target} PRIVATE _AFXDLL)
+    if(MSVC)
+        set_target_properties(${target} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+        target_link_options(${target} PRIVATE
+            /NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libcmtd.lib
+            /NODEFAULTLIB:libcpmt.lib /NODEFAULTLIB:libcpmtd.lib
+            /NODEFAULTLIB:libcimt.lib /NODEFAULTLIB:libcimtd.lib
+        )
+    endif()
+endfunction()

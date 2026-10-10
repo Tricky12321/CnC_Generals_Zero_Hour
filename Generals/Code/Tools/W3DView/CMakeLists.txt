@@ -15,7 +15,7 @@ target_link_libraries(g_w3dview PRIVATE
 )
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
-    target_compile_definitions(g_w3dview PRIVATE _AFXDLL)
+    rts_use_mfc_dll(g_w3dview)
     set_target_properties(g_w3dview PROPERTIES OUTPUT_NAME "W3DViewV${RTS_BUILD_OUTPUT_SUFFIX}")
 else()
     set_target_properties(g_w3dview PROPERTIES OUTPUT_NAME "w3dviewv${RTS_BUILD_OUTPUT_SUFFIX}")

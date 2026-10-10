@@ -81,3 +81,12 @@ endif()
 if(RTS_BUILD_OPTION_PROFILE)
     target_compile_definitions(core_config INTERFACE RTS_PROFILE_LEGACY)
 endif()
+
+# Resync fork: the VC6 preset links the C runtime statically. WorldBuilder uses MFC as a DLL, which
+# requires the DLL runtime, and it references CRT data (__argc, __pctype) that the static game
+# libraries resolve differently, so it cannot be linked in that configuration.
+set(RTS_STATIC_CRT OFF)
+if(MSVC AND CMAKE_MSVC_RUNTIME_LIBRARY AND NOT CMAKE_MSVC_RUNTIME_LIBRARY MATCHES "DLL")
+    set(RTS_STATIC_CRT ON)
+    message(STATUS "Static C runtime: WorldBuilder is not built")
+endif()

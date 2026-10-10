@@ -7,7 +7,9 @@ if(RTS_BUILD_ZEROHOUR_TOOLS)
     add_subdirectory(MapCacheBuilder)
     add_subdirectory(W3DView)
     add_subdirectory(wdump)
-    add_subdirectory(WorldBuilder)
+    if(NOT RTS_STATIC_CRT)
+        add_subdirectory(WorldBuilder)
+    endif()
 endif()
 
 # Build less useful tool/test binaries.

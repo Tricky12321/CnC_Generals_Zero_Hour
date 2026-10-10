@@ -15,7 +15,7 @@ target_link_libraries(z_w3dview PRIVATE
 )
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
-    target_compile_definitions(z_w3dview PRIVATE _AFXDLL)
+    rts_use_mfc_dll(z_w3dview)
     set_target_properties(z_w3dview PROPERTIES OUTPUT_NAME "W3DViewZH${RTS_BUILD_OUTPUT_SUFFIX}")
 else()
     set_target_properties(z_w3dview PROPERTIES OUTPUT_NAME "w3dviewzh${RTS_BUILD_OUTPUT_SUFFIX}")

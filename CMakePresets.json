@@ -14,7 +14,7 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>",
                 "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "",
                 "CMAKE_BUILD_TYPE": "Release",
                 "RTS_FLAGS": "/W3"

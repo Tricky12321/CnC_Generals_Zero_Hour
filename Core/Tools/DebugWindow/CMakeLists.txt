@@ -17,7 +17,7 @@ target_link_libraries(core_debugwindow PRIVATE
 )
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
-    target_compile_definitions(core_debugwindow PRIVATE _AFXDLL)
+    rts_use_mfc_dll(core_debugwindow)
     target_sources(core_debugwindow PRIVATE
         DebugWindow.rc
         DebugWindow.def
