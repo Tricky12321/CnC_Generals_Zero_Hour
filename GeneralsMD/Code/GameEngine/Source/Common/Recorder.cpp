@@ -408,9 +408,10 @@ void RecorderClass::init() {
  * Reset the recorder to the "initialized state."
  */
 void RecorderClass::reset() {
-	// Resync fork: a game state load during a multiplayer resync continues the same game,
-	// so the replay recording must go on.
-	if (TheGameState != nullptr && TheGameState->isInResyncLoad()) {
+	// Resync fork: a game state load or resimulation during a multiplayer resync continues
+	// the same game, so the replay recording must go on.
+	if ((TheGameState != nullptr && TheGameState->isInResyncLoad()) ||
+			(TheGameLogic != nullptr && TheGameLogic->isResimulating())) {
 		return;
 	}
 

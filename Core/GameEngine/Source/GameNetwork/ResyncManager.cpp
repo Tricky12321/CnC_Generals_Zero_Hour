@@ -44,6 +44,9 @@ static const UnsignedInt RESYNC_CHUNKS_PER_ROUND = 32;
 // Give up on the transfer and the load after this long and fall back to the normal mismatch handling.
 static const UnsignedInt RESYNC_TIMEOUT_MS = 180000;
 
+// A resimulation runs the logic of the whole game without rendering, allow it this long per frame.
+static const UnsignedInt RESYNC_RESIMULATE_MS_PER_FRAME = 5;
+
 // A game that keeps going out of sync is not worth holding again and again.
 static const UnsignedInt RESYNC_MAX_PER_GAME = 6;
 
@@ -72,6 +75,8 @@ void ResyncManager::init()
 	m_transferStartTime = 0;
 	m_lastProgressMessageTime = 0;
 	m_resyncCount = 0;
+	m_method = RESYNCMETHOD_STATE;
+	m_resimulatePending = FALSE;
 
 	m_payload.clear();
 	m_sendOffset = 0;
@@ -93,8 +98,8 @@ void ResyncManager::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedBy
 		return;
 	}
 
-	DEBUG_LOG(("ResyncManager::beginResync - hold frame %d, donor %d, targets 0x%X, majority CRC %8.8X",
-		holdFrame, donorSlot, targetMask, majorityCRC));
+	DEBUG_LOG(("ResyncManager::beginResync - hold frame %d, donor %d, targets 0x%X, majority CRC %8.8X, resync %d",
+		holdFrame, donorSlot, targetMask, majorityCRC, m_resyncCount + 1));
 
 	++m_resyncCount;
 	if (m_resyncCount > RESYNC_MAX_PER_GAME)
@@ -103,6 +108,11 @@ void ResyncManager::beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedBy
 		abortResync("too many resyncs in this game");
 		return;
 	}
+
+	// Alternate the methods, so a game state load that does not fix the desync is followed by a
+	// resimulation. The count is the same on every client, so they all pick the same method.
+	m_method = (m_resyncCount % 2 == 1) ? RESYNCMETHOD_STATE : RESYNCMETHOD_RESIMULATE;
+	m_resimulatePending = FALSE;
 
 	m_state = RESYNCSTATE_WAITING_FOR_HOLD_FRAME;
 	m_holdFrame = holdFrame;
@@ -155,7 +165,7 @@ void ResyncManager::update(ConnectionManager *conMgr)
 	}
 
 	UnsignedInt now = timeGetTime();
-	if (now - m_transferStartTime > RESYNC_TIMEOUT_MS)
+	if (now - m_transferStartTime > getTimeout())
 	{
 		abortResync("timeout");
 		return;
@@ -175,11 +185,15 @@ void ResyncManager::update(ConnectionManager *conMgr)
 			msg.format(L"Resync: sending game state %d%%", (Int)((UnsignedInt64)m_sendOffset * 100 / m_payload.size()));
 			TheInGameUI->messageNoFormat(msg);
 		}
-		else if ((m_targetMask & (1 << conMgr->getLocalPlayerID())) != 0 && !m_rxChunks.empty())
+		else if (isLocalTarget(conMgr) && !m_rxChunks.empty())
 		{
 			UnicodeString msg;
 			msg.format(L"Resync: receiving game state %d%%", (Int)((UnsignedInt64)m_rxChunksReceived * 100 / m_rxChunks.size()));
 			TheInGameUI->messageNoFormat(msg);
+		}
+		else if (m_method == RESYNCMETHOD_RESIMULATE)
+		{
+			TheInGameUI->messageNoFormat(UnicodeString(L"Resync: waiting while the game is replayed for a player..."));
 		}
 		else
 		{
@@ -195,6 +209,12 @@ void ResyncManager::startTransfer(ConnectionManager *conMgr)
 	m_state = RESYNCSTATE_TRANSFERRING;
 	m_transferStartTime = timeGetTime();
 	m_lastProgressMessageTime = m_transferStartTime;
+
+	if (m_method == RESYNCMETHOD_RESIMULATE)
+	{
+		m_resimulatePending = isLocalTarget(conMgr);
+		return;
+	}
 
 	if ((Int)conMgr->getLocalPlayerID() != m_donorSlot)
 	{
@@ -430,6 +450,25 @@ void ResyncManager::finishReceive(ConnectionManager *conMgr)
 
 void ResyncManager::updateLoad(ConnectionManager *conMgr)
 {
+	if (m_resimulatePending && m_state == RESYNCSTATE_TRANSFERRING)
+	{
+		if (TheGameLogic->getFrame() < m_holdFrame)
+		{
+			return;
+		}
+		m_resimulatePending = FALSE;
+
+		if (!resimulate())
+		{
+			return;
+		}
+
+		m_rxDoneMask |= (1 << conMgr->getLocalPlayerID());
+		sendDone(conMgr);
+		checkFinished();
+		return;
+	}
+
 	if (!m_rxLoadPending || m_state != RESYNCSTATE_TRANSFERRING || m_rxHoldFrame != m_holdFrame)
 	{
 		return;
@@ -452,16 +491,14 @@ void ResyncManager::updateLoad(ConnectionManager *conMgr)
 #if RTS_ZEROHOUR
 	DEBUG_LOG(("ResyncManager::updateLoad - loading the game state for frame %d", m_holdFrame));
 	SaveCode result = TheGameState->loadGameForResync(RESYNC_RECEIVED_FILENAME);
-	if (result != SC_OK)
+	if (result != SC_OK || TheGameLogic->getFrame() != m_holdFrame)
 	{
-		abortResync("could not load game state");
-		return;
-	}
-	if (TheGameLogic->getFrame() != m_holdFrame)
-	{
-		DEBUG_LOG(("ResyncManager::updateLoad - loaded frame %d, expected %d", TheGameLogic->getFrame(), m_holdFrame));
-		abortResync("loaded game state has the wrong frame");
-		return;
+		// The own game state is gone, but it can still be rebuilt from the recorded commands.
+		DEBUG_LOG(("ResyncManager::updateLoad - loading failed with %d on frame %d, resimulating instead", result, TheGameLogic->getFrame()));
+		if (!resimulate())
+		{
+			return;
+		}
 	}
 #endif
 
@@ -470,6 +507,42 @@ void ResyncManager::updateLoad(ConnectionManager *conMgr)
 	m_rxDoneMask |= (1 << conMgr->getLocalPlayerID());
 	sendDone(conMgr);
 	checkFinished();
+}
+
+Bool ResyncManager::resimulate()
+{
+#if RTS_ZEROHOUR
+	TheInGameUI->messageNoFormat(UnicodeString(L"Resync: replaying the game..."));
+	if (TheGameLogic->resimulateForResync(m_holdFrame) && TheGameLogic->getFrame() == m_holdFrame)
+	{
+		// The network was serviced during the resimulation, the resync may have ended meanwhile.
+		if (m_state != RESYNCSTATE_TRANSFERRING)
+		{
+			return FALSE;
+		}
+		TheInGameUI->messageNoFormat(UnicodeString(L"Resync: game replayed"));
+		return TRUE;
+	}
+#endif
+	if (m_state == RESYNCSTATE_TRANSFERRING)
+	{
+		abortResync("could not replay the game");
+	}
+	return FALSE;
+}
+
+Bool ResyncManager::isLocalTarget(ConnectionManager *conMgr) const
+{
+	return (m_targetMask & (1 << conMgr->getLocalPlayerID())) != 0;
+}
+
+UnsignedInt ResyncManager::getTimeout() const
+{
+	if (m_method == RESYNCMETHOD_RESIMULATE)
+	{
+		return RESYNC_TIMEOUT_MS + m_holdFrame * RESYNC_RESIMULATE_MS_PER_FRAME;
+	}
+	return RESYNC_TIMEOUT_MS;
 }
 
 void ResyncManager::sendDone(ConnectionManager *conMgr)

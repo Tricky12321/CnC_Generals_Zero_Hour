@@ -84,6 +84,7 @@
 #include "GameLogic/AIPathfind.h"
 #include "GameLogic/CaveSystem.h"
 #include "GameLogic/CRCDiagnostics.h"
+#include "GameLogic/LogicCommandHistory.h"
 #include "GameLogic/CrateSystem.h"
 #include "GameLogic/FPUControl.h"
 #include "GameLogic/GameLogic.h"
@@ -254,6 +255,14 @@ GameLogic::GameLogic()
 	m_resyncTestCRCsSent = 0;
 
 	TheCRCDiagnostics = NEW CRCDiagnostics;
+	TheLogicCommandHistory = NEW LogicCommandHistory;
+	m_isResimulating = FALSE;
+	m_resimulationDiverged = FALSE;
+	m_resimulatedCRCCount = 0;
+	for (i = 0; i < RESIM_CRC_HISTORY; ++i)
+	{
+		m_resimulatedCRCs[i] = 0;
+	}
 
 	m_startNewGame = FALSE;
 
@@ -365,6 +374,9 @@ GameLogic::~GameLogic()
 	delete TheCRCDiagnostics;
 	TheCRCDiagnostics = nullptr;
 
+	delete TheLogicCommandHistory;
+	TheLogicCommandHistory = nullptr;
+
 	// delete the logical terrain
 	delete TheTerrainLogic;
 	TheTerrainLogic = nullptr;
@@ -475,8 +487,8 @@ void GameLogic::reset()
 	}
 	m_forceGameStartByTimeOut = FALSE;
 	m_consecutiveCRCMismatches = 0;
-	// Resync fork: a resync load continues the same game
-	if (TheGameState == nullptr || !TheGameState->isInResyncLoad())
+	// Resync fork: a resync load or resimulation continues the same game
+	if (!m_isResimulating && (TheGameState == nullptr || !TheGameState->isInResyncLoad()))
 	{
 		m_resyncTestCRCsSent = 0;
 		TheCRCDiagnostics->reset();
@@ -646,7 +658,7 @@ LoadScreen *GameLogic::getLoadScreen( Bool loadingSaveGame )
 {
 	// Resync fork: only this client loads during a resync, the multiplayer load screen would
 	// report load progress to the others, who are in the running game.
-	if (TheGameState && TheGameState->isInResyncLoad())
+	if (m_isResimulating || (TheGameState && TheGameState->isInResyncLoad()))
 		return NEW ShellGameLoadScreen;
 
 	switch (m_gameMode)
@@ -2268,7 +2280,7 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 
 	updateLoadProgress(LOAD_PROGRESS_END);
 
-	if (TheGameState->isInResyncLoad())
+	if (m_isResimulating || TheGameState->isInResyncLoad())
 	{
 		// Resync fork: only this client loads, the others are waiting in the running game.
 		for (Int resyncSlot = 0; resyncSlot < MAX_SLOTS; ++resyncSlot)
@@ -2690,6 +2702,12 @@ void GameLogic::processCommandList( CommandList *list )
 	m_cachedCRCs.clear();
 	m_shouldValidateCRCs = FALSE;
 
+	// Resync fork: remember the commands, so the game can be resimulated
+	if (!m_isResimulating && TheNetwork && isInMultiplayerGame())
+	{
+		TheLogicCommandHistory->recordFrame(m_frame, list);
+	}
+
 	GameMessage* msg;
 
 	for( msg = list->getFirstMessage(); msg; msg = msg->next() )
@@ -2698,6 +2716,12 @@ void GameLogic::processCommandList( CommandList *list )
 		DEBUG_ASSERTCRASH(msg != nullptr && msg != (GameMessage*)0xdeadbeef, ("bad msg"));
 #endif
 		logicMessageDispatcher( msg, nullptr );
+	}
+
+	if (m_isResimulating)
+	{
+		verifyResimulatedCRCs();
+		return;
 	}
 
 	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch())
@@ -2890,6 +2914,177 @@ void GameLogic::writeCRCMismatchReport(UnsignedInt tolerance)
 	}
 
 	TheCRCDiagnostics->writeMismatchReport(m_frame, it->second, m_cachedCRCs, m_consecutiveCRCMismatches, tolerance);
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Resync fork: during a resimulation, the CRC messages of the original game are executed again.
+	* Where the players had a majority CRC, it must be one that the resimulation calculated recently,
+	* otherwise the resimulation does not reproduce the game of the majority. */
+//-------------------------------------------------------------------------------------------------
+void GameLogic::verifyResimulatedCRCs()
+{
+	if (m_cachedCRCs.empty() || m_resimulatedCRCCount == 0)
+	{
+		return;
+	}
+
+	Int numCRCs = 0;
+	for (CachedCRCMap::const_iterator it = m_cachedCRCs.begin(); it != m_cachedCRCs.end(); ++it)
+	{
+		++numCRCs;
+	}
+
+	for (CachedCRCMap::const_iterator candidate = m_cachedCRCs.begin(); candidate != m_cachedCRCs.end(); ++candidate)
+	{
+		Int count = 0;
+		for (CachedCRCMap::const_iterator other = m_cachedCRCs.begin(); other != m_cachedCRCs.end(); ++other)
+		{
+			if (other->second == candidate->second)
+			{
+				++count;
+			}
+		}
+		if (count * 2 <= numCRCs)
+		{
+			continue;
+		}
+
+		const UnsignedInt available = m_resimulatedCRCCount < RESIM_CRC_HISTORY ? m_resimulatedCRCCount : RESIM_CRC_HISTORY;
+		for (UnsignedInt n = 0; n < available; ++n)
+		{
+			if (m_resimulatedCRCs[n] == candidate->second)
+			{
+				return;
+			}
+		}
+
+		DEBUG_LOG(("GameLogic::verifyResimulatedCRCs - majority CRC %8.8X on frame %d was not reproduced", candidate->second, m_frame));
+		m_resimulationDiverged = TRUE;
+		return;
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+Bool GameLogic::canResimulateTo(UnsignedInt frame) const
+{
+	return TheLogicCommandHistory != nullptr && TheLogicCommandHistory->hasFramesBefore(frame) && TheGameInfo != nullptr;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Resync fork: rebuild the game state of a multiplayer game by starting it again and executing
+	* the recorded commands of every frame up to targetFrame, without rendering. This does not depend
+	* on the save game code, but can only repair a desync that does not happen again in the same way.
+	* The network stays alive and is serviced, the other players wait at targetFrame.
+	* If this fails, the game state is gone and the caller must end the game. */
+//-------------------------------------------------------------------------------------------------
+Bool GameLogic::resimulateForResync(UnsignedInt targetFrame)
+{
+	if (!canResimulateTo(targetFrame) || !isInMultiplayerGame())
+	{
+		return FALSE;
+	}
+
+	DEBUG_LOG(("GameLogic::resimulateForResync - resimulating %u frames", targetFrame));
+
+	const GameMode gameMode = m_gameMode;
+	const UnsignedInt seed = TheGameInfo->getSeed();
+	const AsciiString mapName = TheGameInfo->getMap();
+
+	const Real cameraAngle = TheTacticalView->getAngle();
+	const Real cameraZoom = TheTacticalView->getZoom();
+	Coord3D cameraPos = TheTacticalView->getPosition();
+
+	// The resimulation would play the sounds of the whole game.
+	const Bool soundOn = TheAudio->isOn(AudioAffect_Sound);
+	const Bool sound3DOn = TheAudio->isOn(AudioAffect_Sound3D);
+	const Bool speechOn = TheAudio->isOn(AudioAffect_Speech);
+	TheAudio->setOn(FALSE, AudioAffect_Sound);
+	TheAudio->setOn(FALSE, AudioAffect_Sound3D);
+	TheAudio->setOn(FALSE, AudioAffect_Speech);
+
+	LatchRestore<Bool> resimulating(m_isResimulating, TRUE);
+	m_resimulationDiverged = FALSE;
+	m_resimulatedCRCCount = 0;
+
+	// Start the game like LANAPI::OnGameStart and the MSG_NEW_GAME message did.
+	TheGameEngine->resetKeepingNetwork();
+	InitRandom(seed);
+	TheWritableGlobalData->m_pendingFile = mapName;
+	prepareNewGame(gameMode, DIFFICULTY_NORMAL, 0);
+	startNewGame(FALSE);
+
+	UnsignedInt lastServiceTime = timeGetTime();
+	Bool failed = FALSE;
+	while (m_frame < targetFrame)
+	{
+		const UnsignedInt frame = m_frame;
+		TheLogicCommandHistory->appendFrame(frame, TheCommandList);
+
+		update();
+
+		if (m_frame != frame + 1)
+		{
+			// Time was frozen or the game did not start, the commands would be executed twice.
+			DEBUG_LOG(("GameLogic::resimulateForResync - frame %u did not advance", frame));
+			failed = TRUE;
+			break;
+		}
+		if (m_resimulationDiverged)
+		{
+			failed = TRUE;
+			break;
+		}
+		if (TheNetwork == nullptr || TheNetwork->sawCRCMismatch() || TheGameEngine->getQuitting())
+		{
+			failed = TRUE;
+			break;
+		}
+
+		const UnsignedInt now = timeGetTime();
+		if (now - lastServiceTime > 100)
+		{
+			lastServiceTime = now;
+
+			// Keep the connections alive, the others are waiting for this client.
+			TheNetwork->liteupdate();
+
+			if (m_loadScreen == nullptr)
+			{
+				m_loadScreen = NEW ShellGameLoadScreen;
+				m_loadScreen->init(nullptr);
+			}
+			TheWritableGlobalData->m_loadScreenRender = TRUE;
+			updateLoadProgress((Int)((UnsignedInt64)m_frame * 100 / targetFrame));
+			TheWritableGlobalData->m_loadScreenRender = FALSE;
+		}
+	}
+
+	deleteLoadScreen();
+
+	// Messages that the logic created during the resimulation were sent in the original game
+	// already, they are part of the recorded commands.
+	while (TheMessageStream->getFirstMessage() != nullptr)
+	{
+		deleteInstance(TheMessageStream->getFirstMessage());
+	}
+	TheCommandList->reset();
+
+	TheAudio->setOn(soundOn, AudioAffect_Sound);
+	TheAudio->setOn(sound3DOn, AudioAffect_Sound3D);
+	TheAudio->setOn(speechOn, AudioAffect_Speech);
+
+	TheTacticalView->setAngle(cameraAngle);
+	TheTacticalView->setZoom(cameraZoom);
+	TheTacticalView->lookAt(&cameraPos);
+
+	if (failed)
+	{
+		DEBUG_LOG(("GameLogic::resimulateForResync - failed on frame %u", m_frame));
+		return FALSE;
+	}
+
+	DEBUG_LOG(("GameLogic::resimulateForResync - reached frame %u", m_frame));
+	return TRUE;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -3971,6 +4166,14 @@ void GameLogic::update()
 		// NOTE: RNG state is now restored at start of update(), so no need to check here.
 		// We always generate and send CRCs. The skip mechanism in RecorderClass::handleCRCMessage()
 		// handles skipping the comparison and consuming recorded CRCs to keep queues in sync.
+		if (m_isResimulating)
+		{
+			// Resync fork: the resimulation checks its CRCs against the recorded ones instead of sending them.
+			m_CRC = getCRC( CRC_RECALC );
+			m_resimulatedCRCs[m_resimulatedCRCCount % RESIM_CRC_HISTORY] = m_CRC;
+			++m_resimulatedCRCCount;
+		}
+		else
 		{
 			m_CRC = getCRC( CRC_RECALC );
 			bool isPlayback = (TheRecorder && TheRecorder->isPlaybackMode());
@@ -4011,6 +4214,8 @@ void GameLogic::update()
 	}
 
 	// Update the Recorder
+	// Resync fork: the resimulated commands are already in the replay
+	if (!m_isResimulating)
 	{
 		TheRecorder->UPDATE();
 	}

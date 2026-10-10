@@ -248,6 +248,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/GameLogic.h
     Include/GameLogic/GhostObject.h
     Include/GameLogic/Locomotor.h
+    Include/GameLogic/LogicCommandHistory.h
     Include/GameLogic/LocomotorSet.h
 #    Include/GameLogic/LogicRandomValue.h
     Include/GameLogic/Module/ActiveBody.h
@@ -1081,6 +1082,7 @@ set(GAMEENGINE_SRC
 #    Source/GameLogic/System/Damage.cpp
     Source/GameLogic/System/CRCDiagnostics.cpp
     Source/GameLogic/System/GameLogic.cpp
+    Source/GameLogic/System/LogicCommandHistory.cpp
 #    Source/GameLogic/System/GameLogicDispatch.cpp
 #    Source/GameLogic/System/RankInfo.cpp
 #    Source/GameNetwork/Connection.cpp
