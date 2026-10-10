@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Resync fork: CRC mismatch diagnostics.
+// TheSuperHackers @feature Tricky12321 10/10/2026 CRC mismatch diagnostics.
 //
 // While the logic CRC is calculated, the running CRC is recorded after every object and every
 // CRC section for the last few CRC frames. When the CRCs of the players differ, a report with

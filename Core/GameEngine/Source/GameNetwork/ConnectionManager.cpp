@@ -2412,7 +2412,7 @@ void ConnectionManager::sendFile(AsciiString path, UnsignedByte playerMask, Unsi
 }
 
 /**
- * Resync fork: send a file from <user data>\CRCMismatch\ to the host, so the host can analyze the
+ * TheSuperHackers @feature Tricky12321 10/10/2026 Send a file from <user data>\CRCMismatch\ to the host, so the host can analyze the
  * diagnostics of every player after a desync. The host stores it as
  * CRCMismatch\From\Slot<N>_<name>\<file>, see GameState::portableMapPathToRealMapPath.
  */

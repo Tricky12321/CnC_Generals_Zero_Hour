@@ -230,7 +230,7 @@ void setFPMode()
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
 
-	// Resync fork: remember the result, so CRCDiagnostics can detect when something changes it.
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Remember the result, so CRCDiagnostics can detect when something changes it.
 	s_expectedFPControl = _controlfp(0, 0);
 }
 
@@ -490,7 +490,7 @@ void GameLogic::reset()
 	}
 	m_forceGameStartByTimeOut = FALSE;
 	m_consecutiveCRCMismatches = 0;
-	// Resync fork: a resync load or resimulation continues the same game
+	// TheSuperHackers @feature Tricky12321 10/10/2026 A resync load or resimulation continues the same game
 	if (!m_isResimulating && (TheGameState == nullptr || !TheGameState->isInResyncLoad()))
 	{
 		m_resyncTestCRCsSent = 0;
@@ -659,7 +659,7 @@ static void placeNetworkBuildingsForPlayer(Int slotNum, const GameSlot *pSlot, P
 // ------------------------------------------------------------------------------------------------
 LoadScreen *GameLogic::getLoadScreen( Bool loadingSaveGame )
 {
-	// Resync fork: only this client loads during a resync, the multiplayer load screen would
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Only this client loads during a resync, the multiplayer load screen would
 	// report load progress to the others, who are in the running game.
 	if (m_isResimulating || (TheGameState && TheGameState->isInResyncLoad()))
 		return NEW ShellGameLoadScreen;
@@ -2285,7 +2285,7 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 
 	if (m_isResimulating || TheGameState->isInResyncLoad())
 	{
-		// Resync fork: only this client loads, the others are waiting in the running game.
+		// TheSuperHackers @feature Tricky12321 10/10/2026 Only this client loads, the others are waiting in the running game.
 		for (Int resyncSlot = 0; resyncSlot < MAX_SLOTS; ++resyncSlot)
 		{
 			m_progressComplete[resyncSlot] = TRUE;
@@ -2421,7 +2421,7 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 
 	// If we are now starting a multiplayer or skirmish game, let us set the local players selectionto be the command center
 	// We'll ask the Recorder, so we survive replays
-	// Resync fork: not when a resync loads a game state, the selection is part of the loaded state
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Not when a resync loads a game state, the selection is part of the loaded state
 	// and changing it on this client only would desync it again.
 	if( TheRecorder->isMultiplayer() && !TheGameState->isInResyncLoad() )
 	{
@@ -2705,7 +2705,7 @@ void GameLogic::processCommandList( CommandList *list )
 	m_cachedCRCs.clear();
 	m_shouldValidateCRCs = FALSE;
 
-	// Resync fork: remember the commands, so the game can be resimulated
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Remember the commands, so the game can be resimulated
 	if (!m_isResimulating && TheNetwork && isInMultiplayerGame())
 	{
 		if (m_frame == 0)
@@ -2808,7 +2808,7 @@ void GameLogic::processCommandList( CommandList *list )
 		{
 			m_consecutiveCRCMismatches = 0;
 
-			// Resync fork: everyone agrees, so a checkpoint of the CRC frame is good.
+			// TheSuperHackers @feature Tricky12321 10/10/2026 Everyone agrees, so a checkpoint of the CRC frame is good.
 			Player *localPlayer = ThePlayerList->getLocalPlayer();
 			CachedCRCMap::const_iterator localCRC = localPlayer ? m_cachedCRCs.find(localPlayer->getPlayerIndex()) : m_cachedCRCs.end();
 			if (localCRC != m_cachedCRCs.end())
@@ -2835,7 +2835,7 @@ void GameLogic::processCommandList( CommandList *list )
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Resync fork: group the CRCs of this frame by value and pick the deciding group: the largest
+/** TheSuperHackers @feature Tricky12321 10/10/2026 Group the CRCs of this frame by value and pick the deciding group: the largest
 	* group, or on a tie the group of the host. The host is the lowest slot that sent a CRC, which is
 	* slot 0 in a LAN game while the host is connected.
 	* Every client sees the same frame synchronized CRCs, so they all make the same decision. */
@@ -2924,7 +2924,7 @@ Bool GameLogic::findDecidingCRC(Bool connectedOnly, UnsignedInt &crc, UnsignedBy
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Resync fork: start a resync of everyone outside the deciding CRC group from the lowest slot of
+/** TheSuperHackers @feature Tricky12321 10/10/2026 Start a resync of everyone outside the deciding CRC group from the lowest slot of
 	* that group. */
 //-------------------------------------------------------------------------------------------------
 Bool GameLogic::startResyncFromMajority()
@@ -2965,7 +2965,7 @@ Bool GameLogic::startResyncFromMajority()
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Resync fork: write the CRC diagnostics of the mismatched frame to a report file. */
+/** TheSuperHackers @feature Tricky12321 10/10/2026 Write the CRC diagnostics of the mismatched frame to a report file. */
 //-------------------------------------------------------------------------------------------------
 void GameLogic::writeCRCMismatchReport(UnsignedInt tolerance)
 {
@@ -2990,7 +2990,7 @@ void GameLogic::writeCRCMismatchReport(UnsignedInt tolerance)
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Resync fork: during a resimulation, the CRC messages of the original game are executed again.
+/** TheSuperHackers @feature Tricky12321 10/10/2026 During a resimulation, the CRC messages of the original game are executed again.
 	* The deciding CRC of the players (see findDecidingCRC) must be one that the resimulation
 	* calculated recently, otherwise the resimulation does not reproduce the game that won. */
 //-------------------------------------------------------------------------------------------------
@@ -3025,7 +3025,7 @@ void GameLogic::verifyResimulatedCRCs()
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Resync fork: when the host armed a resume in the game lobby, every player loads the same
+/** TheSuperHackers @feature Tricky12321 10/10/2026 When the host armed a resume in the game lobby, every player loads the same
 	* multiplayer checkpoint right after the map was loaded, and the game continues from there. */
 //-------------------------------------------------------------------------------------------------
 void GameLogic::resumeFromMPCheckpoint()
@@ -3058,7 +3058,7 @@ Bool GameLogic::canResimulateTo(UnsignedInt frame) const
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Resync fork: rebuild the game state of a multiplayer game by starting it again and executing
+/** TheSuperHackers @feature Tricky12321 10/10/2026 Rebuild the game state of a multiplayer game by starting it again and executing
 	* the recorded commands of every frame up to targetFrame, without rendering. This does not depend
 	* on the save game code, but can only repair a desync that does not happen again in the same way.
 	* The network stays alive and is serviced, the other players wait at targetFrame.
@@ -4257,7 +4257,7 @@ void GameLogic::update()
 		// handles skipping the comparison and consuming recorded CRCs to keep queues in sync.
 		if (m_isResimulating)
 		{
-			// Resync fork: the resimulation checks its CRCs against the recorded ones instead of sending them.
+			// TheSuperHackers @feature Tricky12321 10/10/2026 The resimulation checks its CRCs against the recorded ones instead of sending them.
 			m_CRC = getCRC( CRC_RECALC );
 			m_resimulatedCRCs[m_resimulatedCRCCount % RESIM_CRC_HISTORY] = m_CRC;
 			++m_resimulatedCRCCount;
@@ -4272,7 +4272,7 @@ void GameLogic::update()
 				MPCheckpoint::notePendingCRC(m_frame, m_CRC);
 			}
 
-			// Resync fork: -resyncTest makes this client report wrong CRCs for a while, so the
+			// TheSuperHackers @feature Tricky12321 10/10/2026 -resyncTest makes this client report wrong CRCs for a while, so the
 			// others see it in the minority and resync it.
 			UnsignedInt sentCRC = m_CRC;
 			static const UnsignedInt RESYNC_TEST_WRONG_CRCS = 5;
@@ -4308,7 +4308,7 @@ void GameLogic::update()
 	}
 
 	// Update the Recorder
-	// Resync fork: the resimulated commands are already in the replay
+	// TheSuperHackers @feature Tricky12321 10/10/2026 The resimulated commands are already in the replay
 	if (!m_isResimulating)
 	{
 		TheRecorder->UPDATE();
@@ -4464,7 +4464,7 @@ void GameLogic::update()
 		m_hasUpdated = TRUE;
 	}
 
-	// Resync fork: every client saves a multiplayer checkpoint on the same frames. The state is the
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Every client saves a multiplayer checkpoint on the same frames. The state is the
 	// one the CRC of this frame is calculated from at the start of the next update.
 	if (!m_isResimulating && TheNetwork && isInMultiplayerGame() && TheGameInfo && m_frame > 0 &&
 		(m_frame % MPCheckpoint::getInterval(TheGameInfo->getCRCInterval())) == 0)
@@ -4752,7 +4752,7 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 	Object *obj;
 	DEBUG_ASSERTCRASH(this == TheGameLogic, ("Not in GameLogic"));
 
-	// Resync fork: record the running CRC of the logic frame CRCs for mismatch reports.
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Record the running CRC of the logic frame CRCs for mismatch reports.
 	CRCDiagnostics *diag = nullptr;
 	if (isInGameLogicUpdate() && deepCRCFileName.isEmpty() && xferCRC->getXferMode() == XFER_CRC)
 	{

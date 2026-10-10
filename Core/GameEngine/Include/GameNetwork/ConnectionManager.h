@@ -74,7 +74,7 @@ public:
 //	void AddConnection(User *user, UnsignedInt slot);
 	void determineRouterFallbackPlan();
 	void zeroFrames(UnsignedInt startingFrame, UnsignedInt numFrames);
-	void resetFrameData();																			///< Resync fork: forget the frame data of all players
+	void resetFrameData();																			///< TheSuperHackers @feature Tricky12321 10/10/2026 Forget the frame data of all players
 	void destroyGameMessages();
 //	void createConnections(UnsignedInt numberOfPlayers, UnsignedInt localSlot);
 	void setLocalAddress(UnsignedInt ip, UnsignedInt port);
@@ -84,7 +84,7 @@ public:
 
 	void sendFile(AsciiString path, UnsignedByte playerMask, UnsignedShort commandID);
 	UnsignedShort sendFileAnnounce(AsciiString path, UnsignedByte playerMask);
-	void sendDiagnosticsFileToHost(AsciiString fileName);		///< Resync fork: send a file from the CRCMismatch directory to the host
+	void sendDiagnosticsFileToHost(AsciiString fileName);		///< TheSuperHackers @feature Tricky12321 10/10/2026 Send a file from the CRCMismatch directory to the host
 	Int getFileTransferProgress(Int playerID, AsciiString path);
 	Bool areAllQueuesEmpty();
 
@@ -131,7 +131,7 @@ public:
 	Bool isPlayerConnected( Int playerID );
 	Bool isConnectionQueueEmpty( Int playerID );						///< True if there are no unacknowledged commands for this player.
 
-	// Resync fork: mid-game state transfer to players with a minority CRC.
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Mid-game state transfer to players with a minority CRC.
 	void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC);
 	Bool isResyncInProgress() const;
 	Bool isResyncHoldingFrame(UnsignedInt frame) const;

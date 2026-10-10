@@ -108,7 +108,7 @@
 #endif
 
 #ifndef RETAIL_COMPATIBLE_XFER_SAVE
-// Resync fork: disabled so the logic RNG state and other checkpoint data are serialized (GameLogic xfer version 11+).
+// TheSuperHackers @tweak Tricky12321 10/10/2026 Disabled so the logic RNG state and other checkpoint data are serialized (GameLogic xfer version 11+).
 #define RETAIL_COMPATIBLE_XFER_SAVE (0) // Game is expected to be Xfer Save compatible with retail Generals 1.08, Zero Hour 1.04
 #endif
 

@@ -678,7 +678,7 @@ void LANAPI::OnInActive(UnsignedInt IP) {
 
 void LANAPI::OnChat( UnicodeString player, UnsignedInt ip, UnicodeString message, ChatType format )
 {
-	// Resync fork: the host can resume the last game from a checkpoint with "/resume" in the game lobby
+	// TheSuperHackers @feature Tricky12321 10/10/2026 The host can resume the last game from a checkpoint with "/resume" in the game lobby
 	if (format == LANAPIInterface::LANCHAT_NORMAL && !m_inLobby && m_currentGame && !m_currentGame->isGameInProgress())
 	{
 		MPCheckpoint::onLobbyChat(ip, message, ip == m_currentGame->getIP(0), m_currentGame->amIHost());

@@ -760,7 +760,7 @@ SaveCode GameState::loadGame( AvailableGameInfo gameInfo )
 }
 
 // ------------------------------------------------------------------------------------------------
-/** Resync fork: load the game state that a resync received from the majority into the running
+/** TheSuperHackers @feature Tricky12321 10/10/2026 Load the game state that a resync received from the majority into the running
 	* multiplayer game. Unlike loadGame(), this keeps TheNetwork and the replay recording alive, and
 	* keeps the local player's view. The logic frame of the loaded state must be the frame the
 	* network is held at. If this fails, the game state is gone and the caller must end the game. */
@@ -993,7 +993,7 @@ static AsciiString getMapLeafAndDirName(const AsciiString& in)
 const char* PORTABLE_SAVE				= "Save\\";
 const char* PORTABLE_MAPS				= "Maps\\";
 const char* PORTABLE_USER_MAPS	= "UserData\\Maps\\";
-// Resync fork: diagnostics files that a player sends to the host after a desync,
+// TheSuperHackers @feature Tricky12321 10/10/2026 Diagnostics files that a player sends to the host after a desync,
 // "Diag\<sender>\<file>" -> "<user data>\CRCMismatch\From\<sender>\<file>"
 const char* PORTABLE_DIAGNOSTICS	= "Diag\\";
 
@@ -1602,7 +1602,7 @@ void GameState::xferSaveData( Xfer *xfer, SnapshotType which )
 				// find matching token in the save file lexicon
 				blockInfo = findBlockInfoByToken( token, which );
 
-				// Resync fork: the replay recording of this client continues, it must not take
+				// TheSuperHackers @feature Tricky12321 10/10/2026 The replay recording of this client continues, it must not take
 				// over the recorder state of the player that sent the game state.
 				if( blockInfo != nullptr && m_isInResyncLoad && token.compareNoCase( "CHUNK_Recorder" ) == 0 )
 				{

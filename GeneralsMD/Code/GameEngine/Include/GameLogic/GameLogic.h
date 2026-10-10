@@ -106,11 +106,11 @@ public:
 	Int getNumberSleepyUpdates() const {return m_sleepyUpdates.size();} //For profiling, so not in Release.
 #endif
 	void processCommandList( CommandList *list );		///< process the command list
-	Bool startResyncFromMajority();								///< Resync fork: let the deciding CRC group resync everyone else
-	void writeCRCMismatchReport(UnsignedInt tolerance);			///< Resync fork: write the CRC diagnostics of a mismatch
-	Bool canResimulateTo(UnsignedInt frame) const;					///< Resync fork: are the commands of all frames before this one recorded?
-	void resumeFromMPCheckpoint();													///< Resync fork: continue a lost game from its checkpoint
-	Bool resimulateForResync(UnsignedInt targetFrame);			///< Resync fork: rebuild the game state by replaying the recorded commands
+	Bool startResyncFromMajority();								///< TheSuperHackers @feature Tricky12321 10/10/2026 Let the deciding CRC group resync everyone else
+	void writeCRCMismatchReport(UnsignedInt tolerance);			///< TheSuperHackers @feature Tricky12321 10/10/2026 Write the CRC diagnostics of a mismatch
+	Bool canResimulateTo(UnsignedInt frame) const;					///< TheSuperHackers @feature Tricky12321 10/10/2026 Are the commands of all frames before this one recorded?
+	void resumeFromMPCheckpoint();													///< TheSuperHackers @feature Tricky12321 10/10/2026 Continue a lost game from its checkpoint
+	Bool resimulateForResync(UnsignedInt targetFrame);			///< TheSuperHackers @feature Tricky12321 10/10/2026 Rebuild the game state by replaying the recorded commands
 	Bool isResimulating() const { return m_isResimulating; }
 
 	void prepareNewGame( GameMode gameMode, GameDifficulty diff, Int rankPoints );						///< prepare for new game
@@ -384,15 +384,15 @@ private:
 	typedef std::map<Int, UnsignedInt> CachedCRCMap;
 	CachedCRCMap m_cachedCRCs;															///< CRCs we've seen this frame
 	Bool m_shouldValidateCRCs;															///< Should we validate CRCs this frame?
-	UnsignedInt m_resyncTestCRCsSent;											///< Resync fork: wrong CRCs sent for -resyncTest
+	UnsignedInt m_resyncTestCRCsSent;											///< TheSuperHackers @feature Tricky12321 10/10/2026 Wrong CRCs sent for -resyncTest
 	UnsignedInt m_consecutiveCRCMismatches;									///< Number of CRC validations in a row that did not match
-	Bool m_isResimulating;																	///< Resync fork: resimulateForResync() is running
-	Bool m_resimulationDiverged;														///< Resync fork: the resimulation does not match the majority CRCs
+	Bool m_isResimulating;																	///< TheSuperHackers @feature Tricky12321 10/10/2026 resimulateForResync() is running
+	Bool m_resimulationDiverged;														///< TheSuperHackers @feature Tricky12321 10/10/2026 The resimulation does not match the majority CRCs
 	enum { RESIM_CRC_HISTORY = 4 };
-	UnsignedInt m_resimulatedCRCs[RESIM_CRC_HISTORY];						///< Resync fork: the last CRCs calculated during the resimulation
+	UnsignedInt m_resimulatedCRCs[RESIM_CRC_HISTORY];						///< TheSuperHackers @feature Tricky12321 10/10/2026 The last CRCs calculated during the resimulation
 	UnsignedInt m_resimulatedCRCCount;
 	void verifyResimulatedCRCs();
-	Bool findDecidingCRC(Bool connectedOnly, UnsignedInt &crc, UnsignedByte &groupMask, UnsignedByte &voterMask, Int &groupCount, Int &numVoters) const;	///< Resync fork: the CRC of the largest group, the host's group on a tie
+	Bool findDecidingCRC(Bool connectedOnly, UnsignedInt &crc, UnsignedByte &groupMask, UnsignedByte &voterMask, Int &groupCount, Int &numVoters) const;	///< TheSuperHackers @feature Tricky12321 10/10/2026 The CRC of the largest group, the host's group on a tie
 	//-----------------------------------------------------------------------------------------------
 	//Bool m_loadingScene;
 	Bool m_loadingMap;

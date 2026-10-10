@@ -64,7 +64,7 @@ macro(collect_defines_from_file OutputVariableName InputFile DefinePrefix)
     unset(_define_name)
 endmacro()
 
-# Resync fork: the VC6 build links the C runtime statically, so Wine and Windows run the same CRT
+# TheSuperHackers @build Tricky12321 10/10/2026 The VC6 build links the C runtime statically, so Wine and Windows run the same CRT
 # code. MFC as a DLL (_AFXDLL) requires the DLL runtime, so the MFC tools use it and ignore the
 # static runtime libraries that the shared static libraries ask for.
 function(rts_use_mfc_dll target)

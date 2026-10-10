@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Resync fork: mid-game resynchronization of players whose CRC lost the vote.
+// TheSuperHackers @feature Tricky12321 10/10/2026 Mid-game resynchronization of players whose CRC lost the vote.
 //
 // Flow, driven from ConnectionManager::update:
 //  1. GameLogic detects a persistent CRC mismatch, picks the deciding CRC (the largest group of
@@ -41,7 +41,7 @@
 class ConnectionManager;
 class NetResyncCommandMsg;
 
-// Resync fork: log a resync step to <user data>/CRCMismatch/ResyncLog.txt, also in release builds,
+// TheSuperHackers @feature Tricky12321 10/10/2026 Log a resync step to <user data>/CRCMismatch/ResyncLog.txt, also in release builds,
 // so a failed resync can be diagnosed on every client.
 void ResyncLog(const char *format, ...);
 

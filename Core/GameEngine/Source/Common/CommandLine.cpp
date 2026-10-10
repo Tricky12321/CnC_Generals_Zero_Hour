@@ -1249,7 +1249,7 @@ static CommandLineParam paramsForStartup[] =
 	// Usage: -replay 00000000.rep -loadCheckpoint checkpoint.sav
 	{ "-loadCheckpoint", parseLoadCheckpoint },
 
-	// Resync fork: from the given frame on, this client sends wrong CRCs for a few checks,
+	// TheSuperHackers @feature Tricky12321 10/10/2026 From the given frame on, this client sends wrong CRCs for a few checks,
 	// so it ends up in the minority and gets resynced by the others. For testing only.
 	// Usage: -resyncTest 3000
 	{ "-resyncTest", parseResyncTest },

@@ -82,7 +82,7 @@ if(RTS_BUILD_OPTION_PROFILE)
     target_compile_definitions(core_config INTERFACE RTS_PROFILE_LEGACY)
 endif()
 
-# Resync fork: the VC6 preset links the C runtime statically. WorldBuilder uses MFC as a DLL, which
+# TheSuperHackers @build Tricky12321 10/10/2026 The VC6 preset links the C runtime statically. WorldBuilder uses MFC as a DLL, which
 # requires the DLL runtime, and it references CRT data (__argc, __pctype) that the static game
 # libraries resolve differently, so it cannot be linked in that configuration.
 set(RTS_STATIC_CRT OFF)

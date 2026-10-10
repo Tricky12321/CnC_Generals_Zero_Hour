@@ -177,7 +177,7 @@ enum NetCommandType CPP_11(: Int) {
 	NETCOMMANDTYPE_DISCONNECTSCREENOFF,
 	NETCOMMANDTYPE_DISCONNECTEND,
 
-	// Resync fork: mid-game state transfer to a desynced player. Appended so existing values are unchanged.
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Mid-game state transfer to a desynced player. Appended so existing values are unchanged.
 	NETCOMMANDTYPE_RESYNC,
 };
 

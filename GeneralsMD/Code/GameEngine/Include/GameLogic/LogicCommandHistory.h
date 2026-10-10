@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Resync fork: in memory history of the network commands that the logic executed in the current
+// TheSuperHackers @feature Tricky12321 10/10/2026 In memory history of the network commands that the logic executed in the current
 // multiplayer game. A client that is out of sync can replay it from the start of the game to rebuild
 // its game state without a state transfer, see GameLogic::resimulateForResync().
 

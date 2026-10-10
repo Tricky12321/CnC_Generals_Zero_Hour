@@ -206,7 +206,7 @@ protected:
 	Int m_frameRate;
 	Int m_lastExecutionFrame;																	///< The highest frame number that a command could have been executed on.
 	Int m_lastFrameCompleted;
-	UnsignedInt m_firstGameFrame;																	///< Resync fork: the first frame that is executed in game, 1 unless the game was resumed
+	UnsignedInt m_firstGameFrame;																	///< TheSuperHackers @feature Tricky12321 10/10/2026 The first frame that is executed in game, 1 unless the game was resumed
 	Bool m_didSelfSlug;
 	__int64 m_perfCountFreq;														///< The frequency of the performance counter.
 
@@ -383,7 +383,7 @@ Bool Network::isResyncInProgress()
 }
 
 /**
- * Resync fork: every player loaded the same checkpoint at the start of the game, so the logic
+ * TheSuperHackers @feature Tricky12321 10/10/2026 Every player loaded the same checkpoint at the start of the game, so the logic
  * continues after the checkpoint frame instead of after frame 0. Set up the frame data like
  * parseUserList() does for a new game, but shifted to that frame. This must happen before any
  * frame info is sent, which only starts after the first game frame.
@@ -771,7 +771,7 @@ void Network::update()
 		endOfGameCheck();
 	}
 
-	// Resync fork: load a received game state here, outside of the network command processing,
+	// TheSuperHackers @feature Tricky12321 10/10/2026 Load a received game state here, outside of the network command processing,
 	// and hold the logic at the resync frame until every resynced player has loaded it.
 	if (m_conMgr != nullptr) {
 		m_conMgr->updateResyncLoad();

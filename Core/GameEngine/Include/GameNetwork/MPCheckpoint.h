@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Resync fork: multiplayer checkpoints.
+// TheSuperHackers @feature Tricky12321 10/10/2026 Multiplayer checkpoints.
 //
 // Every few minutes of a multiplayer game, every client saves the game state on the same frame
 // to Save/MPCheckpoint_pending.sav. Once the CRCs of all players for that frame turned out to be

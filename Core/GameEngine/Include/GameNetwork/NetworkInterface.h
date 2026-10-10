@@ -73,7 +73,7 @@ public:
 
 	virtual void sendFile(AsciiString path, UnsignedByte playerMask, UnsignedShort commandID) = 0;
 	virtual UnsignedShort sendFileAnnounce(AsciiString path, UnsignedByte playerMask) = 0;
-	virtual void sendDiagnosticsFileToHost(AsciiString fileName) = 0;		///< Resync fork: send a file from the CRCMismatch directory to the host
+	virtual void sendDiagnosticsFileToHost(AsciiString fileName) = 0;		///< TheSuperHackers @feature Tricky12321 10/10/2026 Send a file from the CRCMismatch directory to the host
 	virtual Int getFileTransferProgress(Int playerID, AsciiString path) = 0;
 	virtual Bool areAllQueuesEmpty() = 0;
 
@@ -106,9 +106,9 @@ public:
 	virtual void initTransport() = 0;
 	virtual Bool sawCRCMismatch() = 0;
 	virtual void setSawCRCMismatch() = 0;
-	virtual void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC) = 0;	///< Resync fork: transfer the majority game state to the target slots
+	virtual void beginResync(UnsignedInt holdFrame, Int donorSlot, UnsignedByte targetMask, UnsignedInt majorityCRC) = 0;	///< TheSuperHackers @feature Tricky12321 10/10/2026 Transfer the majority game state to the target slots
 	virtual Bool isResyncInProgress() = 0;
-	virtual void rebaseFrames(UnsignedInt frame) = 0;				///< Resync fork: the game was resumed from a checkpoint and continues after this frame
+	virtual void rebaseFrames(UnsignedInt frame) = 0;				///< TheSuperHackers @feature Tricky12321 10/10/2026 The game was resumed from a checkpoint and continues after this frame
 
 	virtual Bool isPlayerConnected(Int playerID) = 0;
 

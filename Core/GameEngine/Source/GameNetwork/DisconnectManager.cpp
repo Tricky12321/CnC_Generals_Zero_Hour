@@ -99,7 +99,7 @@ void DisconnectManager::update(ConnectionManager *conMgr) {
 		m_lastFrameTime = timeGetTime();
 	}
 
-	// Resync fork: the logic is deliberately held during a resync, so it must not count as a stall.
+	// TheSuperHackers @feature Tricky12321 10/10/2026 The logic is deliberately held during a resync, so it must not count as a stall.
 	if (conMgr->isResyncInProgress()) {
 		m_lastFrameTime = timeGetTime();
 		return;
